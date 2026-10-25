@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 import re
 
+from . import replay_validation
+
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 RUN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z")
 RESULTS = {"win", "loss", "draw", "crash", "unknown"}
@@ -60,7 +62,8 @@ def validate(m: dict) -> None:
         raise ValueError("only replay/tournament results may declare a result_evidence_sha256")
 
 
-def collect(manifest_file: Path, pluto_log: Path | None, dest: Path, evidence_file: Path | None = None) -> dict:
+def collect(manifest_file: Path, pluto_log: Path | None, dest: Path,
+            evidence_file: Path | None = None, replay_report_file: Path | None = None) -> dict:
     m = json.loads(manifest_file.read_text(encoding="utf-8"))
     validate(m)
     events = []
@@ -76,6 +79,18 @@ def collect(manifest_file: Path, pluto_log: Path | None, dest: Path, evidence_fi
             evidence_verified = True
     elif evidence_file is not None:
         raise ValueError("evidence file supplied for an outcome without replay/tournament evidence")
+    replay_observations = None
+    replay_report_sha256 = None
+    replay_probe_consistent = False
+    if replay_report_file is not None:
+        if m["result_evidence"] != "replay":
+            raise ValueError("replay probe requires result_evidence=replay")
+        report_bytes = replay_report_file.read_bytes()
+        replay_report_sha256 = sha(report_bytes)
+        replay_observations, probe_errors = replay_validation.report_observations(
+            json.loads(report_bytes.decode("utf-8")), m)
+        errors.extend(probe_errors)
+        replay_probe_consistent = bool(evidence_verified and not probe_errors and replay_observations is not None)
     if pluto_log is not None:
         raw = pluto_log.read_bytes()
         raw_sha = sha(raw)
@@ -95,7 +110,10 @@ def collect(manifest_file: Path, pluto_log: Path | None, dest: Path, evidence_fi
         errors.append("pluto_log_not_provided")
     record = {"schema": 1, "manifest": m, "pluto_log_sha256": raw_sha,
               "pluto_json_events": events, "telemetry_errors": errors,
-              "evidence_hash_matches": evidence_verified}
+              "evidence_hash_matches": evidence_verified,
+              "replay_report_sha256": replay_report_sha256,
+              "replay_observations": replay_observations,
+              "replay_probe_consistent": replay_probe_consistent}
     if dest.exists():
         raise FileExistsError(f"refusing to overwrite {dest}")
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -163,7 +181,8 @@ def analyze(directory: Path) -> dict:
             paired.append({"pair_id": pair_id, "results": {a["variant"]: a["result"],
                                                               b["variant"]: b["result"]}})
     return {"schema": 1, "record_count": len(records), "variants": summaries,
-            "artifact_backed_pairs": paired, "excluded_pairs": mismatched}
+            "artifact_backed_pairs": paired, "excluded_pairs": mismatched,
+            "order_observations": replay_validation.aggregate_orders([r for r in records if artifact_backed(r)])}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -173,11 +192,13 @@ def main(argv: list[str] | None = None) -> int:
     record.add_argument("--manifest", type=Path, required=True)
     record.add_argument("--pluto-log", type=Path)
     record.add_argument("--result-evidence-file", type=Path)
+    record.add_argument("--replay-report", type=Path)
     record.add_argument("--output", type=Path, required=True)
     summary = subs.add_parser("analyze")
     summary.add_argument("--records", type=Path, required=True)
     args = ap.parse_args(argv)
-    outcome = (collect(args.manifest, args.pluto_log, args.output, args.result_evidence_file) if args.command == "record"
+    outcome = (collect(args.manifest, args.pluto_log, args.output,
+                       args.result_evidence_file, args.replay_report) if args.command == "record"
                else analyze(args.records))
     print(json.dumps(outcome, indent=2, sort_keys=True))
     return 0
