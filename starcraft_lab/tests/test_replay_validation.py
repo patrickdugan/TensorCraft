@@ -80,6 +80,16 @@ class ReplayValidationTests(unittest.TestCase):
         self.assertIn("replay_winner_unknown",e)
         _,e=replay_validation.report_observations(report(m),manifest(agent_player_id=7))
         self.assertIn("agent_player_id_missing_or_invalid",e)
+    def test_builtin_computer_opponent_player_id_255(self):
+        m = manifest()
+        r = report(m)
+        r["players"][1]["player_id"] = 255
+        obs, errors = replay_validation.report_observations(r, m)
+        self.assertEqual(errors, [])
+        self.assertEqual(obs["agent_player_id"], 0)
+        bad = manifest(agent_player_id=255)
+        _, errors = replay_validation.report_observations(r, bad)
+        self.assertIn("agent_player_id_missing_or_invalid", errors)
     def test_reject_boolean_count(self):
         m=manifest()
         r=report(m)
