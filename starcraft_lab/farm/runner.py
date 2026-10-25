@@ -12,6 +12,7 @@ from contextlib import ExitStack
 import hashlib
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -123,6 +124,47 @@ def _parse_replay(replay:Path, outdir:Path, program:str|None) -> tuple[str,dict|
     return "parsed_replay",probe,None
 
 
+def _stop_tree(proc:subprocess.Popen) -> None:
+    """Terminate the owned launcher process tree on timeout (best effort).
+
+    Native Wine processes that deliberately daemonize outside the process
+    group require manual operator cleanup before restarting a worker.
+    """
+    if os.name=="nt":
+        try:
+            subprocess.run(["taskkill","/PID",str(proc.pid),"/T","/F"],
+                           stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=15)
+        except (OSError,subprocess.TimeoutExpired):
+            proc.kill()
+    else:
+        try:
+            os.killpg(proc.pid,signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        if os.name=="nt":
+            proc.kill()
+        else:
+            try:os.killpg(proc.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+        proc.wait(timeout=5)
+
+
+def _launch(argv:list[str],slot:dict,env:dict,stdout,stderr,timeout:int):
+    """Run an explicit no-shell command and return (code, timeout)."""
+    flags=getattr(subprocess,"CREATE_NEW_PROCESS_GROUP",0) if os.name=="nt" else 0
+    proc=subprocess.Popen(argv,cwd=slot["game_dir"],env=env,
+                          stdout=stdout,stderr=stderr,
+                          creationflags=flags,start_new_session=os.name!="nt")
+    try:
+        return proc.wait(timeout=timeout),False
+    except subprocess.TimeoutExpired:
+        _stop_tree(proc)
+        return proc.returncode,True
+
+
 def _single_game(game:dict, slot:dict, settings:dict,
                  work_root:Path, baseline:bytes) -> dict:
     m=game["manifest"]
@@ -188,18 +230,17 @@ def _single_game(game:dict, slot:dict, settings:dict,
         })
         with capture.open("xb") as stdout, errors.open("xb") as stderr:
             try:
-                p=subprocess.run(argv, cwd=slot["game_dir"],env=env,
-                    stdout=stdout,stderr=stderr,
-                    timeout=settings["launcher"]["timeout_seconds"],check=False)
-            except subprocess.TimeoutExpired:
-                state="launcher_timeout"
-                message="launcher timed out; child-process cleanup requires host inspection"
+                exit_code,timed_out=_launch(
+                    argv,slot,env,stdout,stderr,
+                    settings["launcher"]["timeout_seconds"])
             except OSError as ex:
                 state="launcher_failed"
                 message=f"launcher failed to execute: {type(ex).__name__}"
             else:
-                exit_code=p.returncode
-                if exit_code != 0:
+                if timed_out:
+                    state="launcher_timeout"
+                    message="launcher process tree terminated on timeout; inspect Wine children"
+                elif exit_code != 0:
                     state="launcher_failed"
                     message=f"launcher exited {exit_code}"
                 else:
