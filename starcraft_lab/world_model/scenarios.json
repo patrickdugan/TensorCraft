@@ -1,0 +1,178 @@
+{
+  "schema": 1,
+  "title": "Counterfactual scenarios for bounded tactical surrogate; all hypothetical",
+  "provenance": "researcher_designed",
+  "scenarios": [
+    {
+      "id": "zvz_equal_spend_clustered",
+      "question": "Does Devourer support repay its cost against a clustered Mutalisk cloud?",
+      "A": {
+        "mutalisk": 8,
+        "devourer": 2
+      },
+      "B": {
+        "mutalisk": 12
+      },
+      "starting_distance_px": 520,
+      "formation_spread_px": 28,
+      "focus": 0.72,
+      "kite": 0.18,
+      "horizon_frames": 600,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "equal-ish weighted resource spend",
+        "both players have tech available",
+        "opponent not adapted"
+      ]
+    },
+    {
+      "id": "zvz_equal_spend_dispersed",
+      "question": "Does splash-spore synergy fail against dispersed Mutalisks?",
+      "A": {
+        "mutalisk": 8,
+        "devourer": 2
+      },
+      "B": {
+        "mutalisk": 12
+      },
+      "starting_distance_px": 520,
+      "formation_spread_px": 132,
+      "focus": 0.72,
+      "kite": 0.68,
+      "horizon_frames": 600,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "micro and flight formation are stylized"
+      ]
+    },
+    {
+      "id": "zvz_one_devourer",
+      "question": "At what fleet size is a single Devourer preferable to another Mutalisk?",
+      "A": {
+        "mutalisk": 6,
+        "devourer": 1
+      },
+      "B": {
+        "mutalisk": 8
+      },
+      "starting_distance_px": 440,
+      "formation_spread_px": 42,
+      "focus": 0.65,
+      "kite": 0.28,
+      "horizon_frames": 520,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "tech already paid",
+        "opponent can ignore Devourer"
+      ]
+    },
+    {
+      "id": "zvz_two_devourer_kiting",
+      "question": "Can Devourers maintain acid pressure against active hit-and-run micro?",
+      "A": {
+        "mutalisk": 10,
+        "devourer": 2
+      },
+      "B": {
+        "mutalisk": 14
+      },
+      "starting_distance_px": 580,
+      "formation_spread_px": 86,
+      "focus": 0.5,
+      "kite": 0.85,
+      "horizon_frames": 750,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "far-from-perfect kiting policy",
+        "no terrain constraint"
+      ]
+    },
+    {
+      "id": "zvp_corsair_screen",
+      "question": "Does a Devourer-assisted Muta flock overcome Corsair area fire?",
+      "A": {
+        "mutalisk": 8,
+        "devourer": 2
+      },
+      "B": {
+        "corsair": 9
+      },
+      "starting_distance_px": 580,
+      "formation_spread_px": 45,
+      "focus": 0.75,
+      "kite": 0.28,
+      "horizon_frames": 650,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "corsair area damage is a low-fidelity proxy",
+        "no disruption web"
+      ]
+    },
+    {
+      "id": "zvt_wraith_intercept",
+      "question": "Can Acid Spores and changed pursuit speed punish Wraith flight?",
+      "A": {
+        "mutalisk": 6,
+        "devourer": 2
+      },
+      "B": {
+        "wraith": 8
+      },
+      "starting_distance_px": 640,
+      "formation_spread_px": 65,
+      "focus": 0.62,
+      "kite": 0.58,
+      "horizon_frames": 650,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "cloaking disabled",
+        "no Scourge",
+        "no detectors"
+      ]
+    },
+    {
+      "id": "zvt_valkyrie_screen",
+      "question": "Do acid stacks beat Valkyrie missile salvos?",
+      "A": {
+        "mutalisk": 8,
+        "devourer": 2
+      },
+      "B": {
+        "valkyrie": 5
+      },
+      "starting_distance_px": 530,
+      "formation_spread_px": 48,
+      "focus": 0.68,
+      "kite": 0.25,
+      "horizon_frames": 700,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "missile salvos are simplified",
+        "tech costs ignored",
+        "splash geometry approximate"
+      ]
+    },
+    {
+      "id": "pvt_scout_tank_cover",
+      "question": "Does a seven-Scout precision raid survive Goliath anti-air cover?",
+      "A": {
+        "scout": 7
+      },
+      "B": {
+        "siege_tank": 6,
+        "goliath": 4
+      },
+      "starting_distance_px": 600,
+      "formation_spread_px": 54,
+      "focus": 0.85,
+      "kite": 0.3,
+      "horizon_frames": 700,
+      "evidence_status": "hypothetical",
+      "assumptions": [
+        "siege mode and map terrain unmodeled",
+        "Scouts attack tanks via separate ground weapon",
+        "ground army has no route control"
+      ]
+    }
+  ]
+}

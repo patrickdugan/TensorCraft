@@ -57,3 +57,45 @@ jobs:
                     "Devourer orders", o["devourer"]["issued_orders"],
                     "Scout orders", o["scout"]["issued_orders"])
           PY
+
+  world-model-priors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate synthetic counterfactual A/B research priors
+        run: python -m starcraft_lab.world_model.experiments --trials 256 --sensitivity-trials 24 --seed 20261025 --output /tmp/starcraft_model_priors.json
+      - name: Generate complete named-unit A-versus-B capability matrix
+        run: python -m starcraft_lab.world_model.matchups --json /tmp/starcraft_pairwise_matrix.json --csv /tmp/starcraft_pairwise_matrix.csv
+      - name: Export fillable StarCraft ontology tables
+        run: python -m starcraft_lab.world_model.scaffold --output-dir /tmp/tensorcraft_model_fill
+      - name: Validate outputs and display labeled sample matrix
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("/tmp/starcraft_model_priors.json")
+          r=json.loads(p.read_text())
+          assert r["sampled_matches_are_not_starcraft_matches"] is True
+          assert r["fidelity"]=="low / uncalibrated"
+          assert len(r["scenario_results"]) >= 6
+          for s in r["scenario_results"]:
+              x=s["predictions"]
+              assert len(x)==4
+              assert all(0 <= v["a_favorable_fraction"] <= 1 for v in x.values())
+              v= s["factorial"]
+              assert abs(v["interaction"] - (x["devourer_speed_550_cooldown_90"]["a_favorable_fraction"]-x["devourer_speed_550"]["a_favorable_fraction"]-x["devourer_cooldown_90"]["a_favorable_fraction"]+x["control"]["a_favorable_fraction"])) < 1e-3
+              print("GUESSTIMATE",s["scenario_id"],"control",x["control"]["a_favorable_fraction"],"speed",x["devourer_speed_550"]["a_favorable_fraction"],"cooldown",x["devourer_cooldown_90"]["a_favorable_fraction"],"both",x["devourer_speed_550_cooldown_90"]["a_favorable_fraction"],"interaction",v["interaction"])
+          print("PRIORITY",r["active_learning_queue"][:3])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tensorcraft-world-model-guestimates
+          path: |
+            /tmp/starcraft_model_priors.json
+            /tmp/starcraft_pairwise_matrix.json
+            /tmp/starcraft_pairwise_matrix.csv
+            /tmp/tensorcraft_model_fill/
+          retention-days: 14

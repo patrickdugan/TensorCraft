@@ -1,0 +1,679 @@
+{
+  "schema": 1,
+  "title": "TensorCraft public combat-prior seed, not full DAT or observed Pluto match results",
+  "sources": {
+    "zerg": "https://classic.battle.net/scc/zerg/zstats.shtml",
+    "terran": "https://classic.battle.net/scc/terran/ustats.shtml",
+    "protoss": "https://classic.battle.net/scc/protoss/pstats.shtml",
+    "devourer": "https://classic.battle.net/scc/zerg/units/devourer.shtml",
+    "movement": "https://liquipedia.net/starcraft/Unit_Movement_Speed",
+    "damage": "https://classic.battle.net/scc/GS/damage.shtml"
+  },
+  "semantics": {
+    "speed": "Pixels per Brood War logical frame; upgrades, accel, turn and collision omitted unless explicitly modeled",
+    "cooldown": "Nominal weapon cooldown frames; live attack scheduling also depends on attack animation, orders and latency",
+    "costs": "Total purchase/replacement costs including source Mutalisk for Devourer/Guardian; sunk infrastructure excluded",
+    "bounce": "Mutalisk primary 9, secondary 3, tertiary 1 before armor and acid-spore bonus",
+    "hits_per_attack": "Composite attack approximation; actual shots, projectiles and armor applications must be verified",
+    "splash_radius_px": "Research-model prior, not an extracted DAT constant; must calibrate",
+    "initial_armor": "Nominal armor before upgrades",
+    "validity": "Official unit tables for HP, cost, damage and cooldown; community extracted movement speeds, approximated special attack implementation"
+  },
+  "assumptions": {
+    "spore_decay_frames": {
+      "estimate": 240,
+      "lower": 80,
+      "upper": 600,
+      "status": "unverified_prior",
+      "explanation": "Short-combat expiry sensitivity; game duration/mechanism to verify"
+    },
+    "air_projectile_hit_probability": {
+      "estimate": 0.92,
+      "lower": 0.7,
+      "upper": 1,
+      "status": "model_prior",
+      "explanation": "Aggregates collision, targeting and projectile transit uncertainties"
+    },
+    "formation_spread_px": {
+      "estimate": 56,
+      "lower": 16,
+      "upper": 120,
+      "status": "model_prior"
+    },
+    "focus_fire_probability": {
+      "estimate": 0.65,
+      "lower": 0.2,
+      "upper": 0.95,
+      "status": "model_prior"
+    },
+    "combat_horizon_frames": {
+      "estimate": 500,
+      "lower": 240,
+      "upper": 900,
+      "status": "research_design"
+    },
+    "gas_shadow_price": {
+      "estimate": 1.5,
+      "lower": 1,
+      "upper": 2.5,
+      "status": "economic_assumption"
+    },
+    "devourer_spore_slow_fraction": {
+      "estimate": 0.125,
+      "lower": 0.125,
+      "upper": 0.125,
+      "status": "official_blizzard"
+    },
+    "devourer_spore_bonus_damage": {
+      "estimate": 1,
+      "lower": 1,
+      "upper": 1,
+      "status": "official_blizzard"
+    },
+    "max_acid_spores": {
+      "estimate": 9,
+      "lower": 9,
+      "upper": 9,
+      "status": "official_blizzard"
+    }
+  },
+  "units": {
+    "mutalisk": {
+      "unit_id": 43,
+      "race": "Zerg",
+      "domain": "air",
+      "size": "small",
+      "hp": 120,
+      "shields": 0,
+      "armor": 0,
+      "cost": {
+        "minerals": 100,
+        "gas": 100,
+        "supply": 2
+      },
+      "speed_px_per_frame": 6.67,
+      "weapons": {
+        "air": {
+          "damage": 9,
+          "cooldown_frames": 30,
+          "range_tiles": 3,
+          "damage_type": "normal",
+          "bounce_damage": [
+            9,
+            3,
+            1
+          ],
+          "bounce_radius_px": 96
+        },
+        "ground": {
+          "damage": 9,
+          "cooldown_frames": 30,
+          "range_tiles": 3,
+          "damage_type": "normal",
+          "bounce_damage": [
+            9,
+            3,
+            1
+          ],
+          "bounce_radius_px": 96
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "regeneration",
+        "mutalisk_bounce"
+      ],
+      "source_stats": "zerg"
+    },
+    "devourer": {
+      "unit_id": 62,
+      "race": "Zerg",
+      "domain": "air",
+      "size": "large",
+      "hp": 250,
+      "shields": 0,
+      "armor": 2,
+      "cost": {
+        "minerals": 250,
+        "gas": 150,
+        "supply": 2
+      },
+      "speed_px_per_frame": 5,
+      "weapons": {
+        "air": {
+          "damage": 25,
+          "cooldown_frames": 100,
+          "range_tiles": 6,
+          "damage_type": "explosive",
+          "acid_spores_per_hit": 1,
+          "spore_splash_radius_px": 64
+        },
+        "ground": null
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "regeneration",
+        "acid_spores",
+        "morph_from_mutalisk"
+      ],
+      "morph_incremental": {
+        "minerals": 150,
+        "gas": 50,
+        "requires": "greater_spire"
+      },
+      "source_stats": "devourer"
+    },
+    "guardian": {
+      "unit_id": 44,
+      "race": "Zerg",
+      "domain": "air",
+      "size": "large",
+      "hp": 150,
+      "shields": 0,
+      "armor": 2,
+      "cost": {
+        "minerals": 150,
+        "gas": 200,
+        "supply": 2
+      },
+      "speed_px_per_frame": 2.5,
+      "weapons": {
+        "air": null,
+        "ground": {
+          "damage": 20,
+          "cooldown_frames": 30,
+          "range_tiles": 8,
+          "damage_type": "normal"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "regeneration",
+        "morph_from_mutalisk"
+      ],
+      "morph_incremental": {
+        "minerals": 50,
+        "gas": 100,
+        "requires": "greater_spire"
+      },
+      "source_stats": "zerg"
+    },
+    "scourge": {
+      "unit_id": 47,
+      "race": "Zerg",
+      "domain": "air",
+      "size": "small",
+      "hp": 25,
+      "shields": 0,
+      "armor": 0,
+      "cost": {
+        "minerals": 12,
+        "gas": 38,
+        "supply": 0.5
+      },
+      "speed_px_per_frame": 6.67,
+      "weapons": {
+        "air": {
+          "damage": 110,
+          "cooldown_frames": 1,
+          "range_tiles": 1,
+          "damage_type": "normal",
+          "suicide": true
+        },
+        "ground": null
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "suicide_attack",
+        "two_per_larva"
+      ],
+      "source_stats": "zerg"
+    },
+    "hydralisk": {
+      "unit_id": 38,
+      "race": "Zerg",
+      "domain": "ground",
+      "size": "medium",
+      "hp": 80,
+      "shields": 0,
+      "armor": 0,
+      "cost": {
+        "minerals": 75,
+        "gas": 25,
+        "supply": 1
+      },
+      "speed_px_per_frame": 3.66,
+      "weapons": {
+        "air": {
+          "damage": 10,
+          "cooldown_frames": 15,
+          "range_tiles": 4,
+          "damage_type": "explosive"
+        },
+        "ground": {
+          "damage": 10,
+          "cooldown_frames": 15,
+          "range_tiles": 4,
+          "damage_type": "explosive"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "ground_to_air"
+      ],
+      "source_stats": "zerg"
+    },
+    "overlord": {
+      "unit_id": 42,
+      "race": "Zerg",
+      "domain": "air",
+      "size": "large",
+      "hp": 200,
+      "shields": 0,
+      "armor": 0,
+      "cost": {
+        "minerals": 100,
+        "gas": 0,
+        "supply": 0
+      },
+      "speed_px_per_frame": 0.83,
+      "weapons": {
+        "air": null,
+        "ground": null
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "detector",
+        "transport",
+        "supply_provider"
+      ],
+      "source_stats": "zerg"
+    },
+    "marine": {
+      "unit_id": 0,
+      "race": "Terran",
+      "domain": "ground",
+      "size": "small",
+      "hp": 40,
+      "shields": 0,
+      "armor": 0,
+      "cost": {
+        "minerals": 50,
+        "gas": 0,
+        "supply": 1
+      },
+      "speed_px_per_frame": 4,
+      "weapons": {
+        "air": {
+          "damage": 6,
+          "cooldown_frames": 15,
+          "range_tiles": 4,
+          "damage_type": "normal"
+        },
+        "ground": {
+          "damage": 6,
+          "cooldown_frames": 15,
+          "range_tiles": 4,
+          "damage_type": "normal"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "stim",
+        "range_upgrade"
+      ],
+      "source_stats": "terran"
+    },
+    "goliath": {
+      "unit_id": 3,
+      "race": "Terran",
+      "domain": "ground",
+      "size": "large",
+      "hp": 125,
+      "shields": 0,
+      "armor": 1,
+      "cost": {
+        "minerals": 100,
+        "gas": 50,
+        "supply": 2
+      },
+      "speed_px_per_frame": 4.57,
+      "weapons": {
+        "air": {
+          "damage": 20,
+          "cooldown_frames": 22,
+          "range_tiles": 5,
+          "damage_type": "explosive",
+          "hits_per_attack": 2
+        },
+        "ground": {
+          "damage": 12,
+          "cooldown_frames": 22,
+          "range_tiles": 5,
+          "damage_type": "normal"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "air_range_upgrade"
+      ],
+      "source_stats": "terran"
+    },
+    "wraith": {
+      "unit_id": 8,
+      "race": "Terran",
+      "domain": "air",
+      "size": "large",
+      "hp": 120,
+      "shields": 0,
+      "armor": 0,
+      "cost": {
+        "minerals": 150,
+        "gas": 100,
+        "supply": 2
+      },
+      "speed_px_per_frame": 6.67,
+      "weapons": {
+        "air": {
+          "damage": 20,
+          "cooldown_frames": 22,
+          "range_tiles": 5,
+          "damage_type": "explosive"
+        },
+        "ground": {
+          "damage": 8,
+          "cooldown_frames": 30,
+          "range_tiles": 5,
+          "damage_type": "normal"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "cloak"
+      ],
+      "source_stats": "terran"
+    },
+    "valkyrie": {
+      "unit_id": 58,
+      "race": "Terran",
+      "domain": "air",
+      "size": "large",
+      "hp": 200,
+      "shields": 0,
+      "armor": 2,
+      "cost": {
+        "minerals": 250,
+        "gas": 125,
+        "supply": 3
+      },
+      "speed_px_per_frame": 6.6,
+      "weapons": {
+        "air": {
+          "damage": 6,
+          "cooldown_frames": 64,
+          "range_tiles": 6,
+          "damage_type": "explosive",
+          "hits_per_attack": 8,
+          "splash_radius_px": 50
+        },
+        "ground": null
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "missile_volleys"
+      ],
+      "source_stats": "terran"
+    },
+    "battlecruiser": {
+      "unit_id": 12,
+      "race": "Terran",
+      "domain": "air",
+      "size": "large",
+      "hp": 500,
+      "shields": 0,
+      "armor": 3,
+      "cost": {
+        "minerals": 400,
+        "gas": 300,
+        "supply": 6
+      },
+      "speed_px_per_frame": 2.5,
+      "weapons": {
+        "air": {
+          "damage": 25,
+          "cooldown_frames": 30,
+          "range_tiles": 6,
+          "damage_type": "normal"
+        },
+        "ground": {
+          "damage": 25,
+          "cooldown_frames": 30,
+          "range_tiles": 6,
+          "damage_type": "normal"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "yamato"
+      ],
+      "source_stats": "terran"
+    },
+    "siege_tank": {
+      "unit_id": 5,
+      "race": "Terran",
+      "domain": "ground",
+      "size": "large",
+      "hp": 150,
+      "shields": 0,
+      "armor": 1,
+      "cost": {
+        "minerals": 150,
+        "gas": 100,
+        "supply": 2
+      },
+      "speed_px_per_frame": 4,
+      "weapons": {
+        "air": null,
+        "ground": {
+          "damage": 30,
+          "cooldown_frames": 37,
+          "range_tiles": 7,
+          "damage_type": "explosive"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "siege_mode",
+        "siege_mode_weapon_unmodeled"
+      ],
+      "source_stats": "terran"
+    },
+    "corsair": {
+      "unit_id": 60,
+      "race": "Protoss",
+      "domain": "air",
+      "size": "medium",
+      "hp": 100,
+      "shields": 80,
+      "armor": 1,
+      "cost": {
+        "minerals": 150,
+        "gas": 100,
+        "supply": 2
+      },
+      "speed_px_per_frame": 6.67,
+      "weapons": {
+        "air": {
+          "damage": 5,
+          "cooldown_frames": 8,
+          "range_tiles": 5,
+          "damage_type": "explosive",
+          "splash_radius_px": 40
+        },
+        "ground": null
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "disruption_web",
+        "air_splash"
+      ],
+      "source_stats": "protoss"
+    },
+    "scout": {
+      "unit_id": 70,
+      "race": "Protoss",
+      "domain": "air",
+      "size": "large",
+      "hp": 150,
+      "shields": 100,
+      "armor": 0,
+      "cost": {
+        "minerals": 275,
+        "gas": 125,
+        "supply": 3
+      },
+      "speed_px_per_frame": 5,
+      "weapons": {
+        "air": {
+          "damage": 28,
+          "cooldown_frames": 22,
+          "range_tiles": 4,
+          "damage_type": "explosive"
+        },
+        "ground": {
+          "damage": 8,
+          "cooldown_frames": 30,
+          "range_tiles": 4,
+          "damage_type": "normal"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "speed_upgrade",
+        "sight_upgrade"
+      ],
+      "source_stats": "protoss"
+    },
+    "dragoon": {
+      "unit_id": 66,
+      "race": "Protoss",
+      "domain": "ground",
+      "size": "large",
+      "hp": 100,
+      "shields": 80,
+      "armor": 1,
+      "cost": {
+        "minerals": 125,
+        "gas": 50,
+        "supply": 2
+      },
+      "speed_px_per_frame": 5,
+      "weapons": {
+        "air": {
+          "damage": 20,
+          "cooldown_frames": 30,
+          "range_tiles": 4,
+          "damage_type": "explosive"
+        },
+        "ground": {
+          "damage": 20,
+          "cooldown_frames": 30,
+          "range_tiles": 4,
+          "damage_type": "explosive"
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "range_upgrade"
+      ],
+      "source_stats": "protoss"
+    },
+    "observer": {
+      "unit_id": 84,
+      "race": "Protoss",
+      "domain": "air",
+      "size": "small",
+      "hp": 40,
+      "shields": 20,
+      "armor": 0,
+      "cost": {
+        "minerals": 25,
+        "gas": 75,
+        "supply": 1
+      },
+      "speed_px_per_frame": 3.33,
+      "weapons": {
+        "air": null,
+        "ground": null
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "detector",
+        "cloaked",
+        "speed_upgrade"
+      ],
+      "source_stats": "protoss"
+    },
+    "carrier": {
+      "unit_id": 72,
+      "race": "Protoss",
+      "domain": "air",
+      "size": "large",
+      "hp": 300,
+      "shields": 150,
+      "armor": 4,
+      "cost": {
+        "minerals": 350,
+        "gas": 250,
+        "supply": 6
+      },
+      "speed_px_per_frame": 3.33,
+      "weapons": {
+        "air": null,
+        "ground": null
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "interceptor_carrier_unmodeled"
+      ],
+      "source_stats": "protoss"
+    },
+    "archon": {
+      "unit_id": 68,
+      "race": "Protoss",
+      "domain": "ground",
+      "size": "large",
+      "hp": 10,
+      "shields": 350,
+      "armor": 0,
+      "cost": {
+        "minerals": 100,
+        "gas": 300,
+        "supply": 4
+      },
+      "speed_px_per_frame": 4.92,
+      "weapons": {
+        "air": {
+          "damage": 30,
+          "cooldown_frames": 20,
+          "range_tiles": 2,
+          "damage_type": "normal",
+          "splash_radius_px": 32
+        },
+        "ground": {
+          "damage": 30,
+          "cooldown_frames": 20,
+          "range_tiles": 2,
+          "damage_type": "normal",
+          "splash_radius_px": 32
+        }
+      },
+      "model_status": "reference_prior",
+      "special": [
+        "high_shields",
+        "splash"
+      ],
+      "source_stats": "protoss"
+    }
+  }
+}
