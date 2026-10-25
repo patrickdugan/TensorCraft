@@ -59,9 +59,9 @@ bool write_render_marker(const std::string& path, const char* kind, int frame) {
   if (file == INVALID_HANDLE_VALUE) return false;
   char body[360] = {};
   const int n = std::snprintf(body, sizeof(body),
-      "{\\"schema\\":1,\\"producer\\":\\"bwapi_tournament_replay_marker\\","
-      "\\"event\\":\\"%s\\",\\"run_id\\":\\"%s\\","
-      "\\"replay_mode\\":true,\\"frame\\":%d}\\n",
+      "{\"schema\":1,\"producer\":\"bwapi_tournament_replay_marker\","
+      "\"event\":\"%s\",\"run_id\":\"%s\","
+      "\"replay_mode\":true,\"frame\":%d}\n",
       kind, render_run_id.c_str(), frame);
   DWORD written = 0;
   bool ok = n > 0 && n < (int)sizeof(body) &&
