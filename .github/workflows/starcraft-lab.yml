@@ -31,3 +31,24 @@ jobs:
       - name: Test replay extraction without game assets
         working-directory: starcraft_lab/replay_probe
         run: cargo test --all-targets
+      - name: Checkout public legacy replay fixture
+        uses: actions/checkout@v4
+        with:
+          repository: broodwar-live/bw-engine
+          ref: c1014fa068a927c3c9f09fc5cea7be157f9f5742
+          path: _upstream_replay_fixture
+      - name: Parse real legacy replay through pinned parser
+        run: |
+          cargo run --quiet --manifest-path starcraft_lab/replay_probe/Cargo.toml -- _upstream_replay_fixture/tests/fixtures/larva_vs_mini.rep /tmp/starcraft_replay_probe.json
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          rep = Path("_upstream_replay_fixture/tests/fixtures/larva_vs_mini.rep")
+          data = json.loads(Path("/tmp/starcraft_replay_probe.json").read_text())
+          assert data["schema"] == 1
+          assert data["replay_sha256"] == hashlib.sha256(rep.read_bytes()).hexdigest()
+          assert data["command_count"] > 0
+          assert len(data["players"]) >= 2
+          assert all("devourer" in p["unit_orders"] for p in data["players"])
+          print("Replay fixture parsed:", data["map_name"], data["command_count"], "commands")
+          PY
