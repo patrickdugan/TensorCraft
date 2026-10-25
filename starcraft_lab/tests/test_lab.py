@@ -25,7 +25,8 @@ def manifest(**changes):
              map_sha256='c'*64, mod_sha256='d'*64,
              opponent='Steamhammer', player_race='Zerg', opponent_race='Zerg',
              spawn='A', seed=7, bandit_initial_sha256='e'*64,
-             result='win', result_evidence='replay')
+             result='win', result_evidence='replay',
+             result_evidence_sha256=hashlib.sha256(b'replay').hexdigest())
     m.update(changes)
     return m
 
@@ -74,47 +75,65 @@ class TelemetryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'not been validated'):
             telemetry.validate(manifest(engine='openbw'))
     def test_crash_not_a_loss(self):
-        telemetry.validate(manifest(result='crash', result_evidence='none'))
+        telemetry.validate(manifest(result='crash', result_evidence='none', result_evidence_sha256=None))
         with self.assertRaises(ValueError):
-            telemetry.validate(manifest(result='loss', result_evidence='none'))
+            telemetry.validate(manifest(result='loss', result_evidence='none', result_evidence_sha256=None))
     def test_bandit_json_and_corruption(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root/'manifest.json').write_text(json.dumps(manifest()))
+            (root/'replay.rep').write_bytes(b'replay')
             (root/'events.txt').write_text('seq 1\n{"type":"start","build":"x"}\n{"type":"end","result":"win"}\n')
-            r = telemetry.collect(root/'manifest.json', root/'events.txt', root/'r.json')
+            r = telemetry.collect(root/'manifest.json', root/'events.txt', root/'r.json', root/'replay.rep')
             self.assertEqual(len(r['pluto_json_events']), 2)
             self.assertFalse(r['telemetry_errors'])
             (root/'bad.txt').write_text('{broken\n')
-            r2 = telemetry.collect(root/'manifest.json', root/'bad.txt', root/'bad.json')
+            r2 = telemetry.collect(root/'manifest.json', root/'bad.txt', root/'bad.json', root/'replay.rep')
             self.assertEqual(r2['telemetry_errors'], ['malformed_json_line_1'])
             with self.assertRaises(FileExistsError):
-                telemetry.collect(root/'manifest.json', root/'events.txt', root/'r.json')
+                telemetry.collect(root/'manifest.json', root/'events.txt', root/'r.json', root/'replay.rep')
     def test_paired_analysis(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             for name, var, outcome in [('r1','control','loss'),('r2','devourer_speed_550','win')]:
-                m = manifest(run_id=name, variant=var, result=outcome)
-                r = {'schema':1,'manifest':m,'telemetry_errors':[],'pluto_json_events':[]}
+                m = manifest(run_id=name, variant=var, result=outcome,
+                             mod_sha256=('d'*64 if var=='control' else 'f'*64))
+                r = {'schema':1,'manifest':m,'telemetry_errors':[],'result_evidence_verified':True,'pluto_json_events':[]}
                 (root/f'{name}.json').write_text(json.dumps(r))
             report = telemetry.analyze(root)
             self.assertEqual(report['variants']['devourer_speed_550']['win_rate_decisive'], 1.0)
             self.assertEqual(len(report['verified_pairs']), 1)
-            (root/'r2.json').write_text(json.dumps({'schema':1,'manifest':manifest(run_id='r2', variant='devourer_speed_550', seed=8),'telemetry_errors':[],'pluto_json_events':[]}))
+            (root/'r2.json').write_text(json.dumps({'schema':1,'manifest':manifest(run_id='r2', variant='devourer_speed_550', seed=8, mod_sha256='f'*64),'telemetry_errors':[],'result_evidence_verified':True,'pluto_json_events':[]}))
             report2=telemetry.analyze(root)
             self.assertEqual(report2['excluded_pairs'][0]['reason'], 'different_conditions')
     def test_unverified_outcome_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            m = manifest(result_evidence='manual')
-            (root/'r1.json').write_text(json.dumps({'schema':1,'manifest':m,'telemetry_errors':[],'pluto_json_events':[]}))
+            m = manifest(result_evidence='manual', result_evidence_sha256=None)
+            (root/'r1.json').write_text(json.dumps({'schema':1,'manifest':m,'telemetry_errors':[],'result_evidence_verified':True,'pluto_json_events':[]}))
             report=telemetry.analyze(root)
             self.assertIsNone(report['variants']['control']['win_rate_decisive'])
             self.assertEqual(report['variants']['control']['excluded'], 1)
+    def test_missing_evidence_excluded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'manifest.json').write_text(json.dumps(manifest()))
+            r=telemetry.collect(root/'manifest.json', None, root/'r1.json')
+            self.assertIn('result_evidence_file_missing', r['telemetry_errors'])
+            self.assertFalse(telemetry.verified(r))
+    def test_same_mod_hash_blocks_pair(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            for name,var in [('r1','control'),('r2','devourer_speed_550')]:
+                m=manifest(run_id=name,variant=var)
+                r={'schema':1,'manifest':m,'telemetry_errors':[],'result_evidence_verified':True}
+                (root/f'{name}.json').write_text(json.dumps(r))
+            summary=telemetry.analyze(root)
+            self.assertEqual(summary['excluded_pairs'][0]['reason'],'same_mod_hash')
     def test_duplicate_run_id_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
-            r={'schema':1,'manifest':manifest(),'telemetry_errors':[]}
+            r={'schema':1,'manifest':manifest(),'telemetry_errors':[],'result_evidence_verified':True}
             (root/'a.json').write_text(json.dumps(r))
             (root/'b.json').write_text(json.dumps(r))
             with self.assertRaisesRegex(ValueError, 'duplicate'):
