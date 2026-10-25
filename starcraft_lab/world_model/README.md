@@ -102,3 +102,10 @@ The scaffold has 228 unit rows, 130 weapon rows, a variable registry, the known 
 The named-unit matrix covers every ordered pair among the seeded units (18 × 18 = 324 capability comparisons). Each cell records whether a direct weapon can hit the target, nominal damage against size/armor, idealized time-to-kill, weighted resource cost and an explicitly uncertain two-sided exchange heuristic. Carrier/interceptor and siege-mode interactions remain excluded. This pairwise table is a **coverage inventory**, not an exhaustive full-game tactical model.
 
 CI attaches these CSV and JSON files to the modeling PR's workflow artifact. They are suitable as editable data/agent targets without copying copyrighted game archives.
+
+
+## Stage 3: per-frame observational calibration
+
+The stacked [passive tournament sidecar](../live_trace/README.md) can log real Brood War movement, weapon cooldown counters, attack-start transitions and Acid Spore stacks alongside Pluto as the primary AI. A separate strict reader computes per-run measurements and tests four-arm speed/cadence consistency before proposing any model-parameter adjustment. The standalone Windows DLL must still be built against local BWAPI 4.4.0 and tested under Brood War 1.16.1.
+
+Use `python -m starcraft_lab.world_model.trace_analysis --help` and `python -m starcraft_lab.world_model.calibration_gate --help` for offline artifact analysis. Existing JSON matrices remain publicly labeled speculative until native observations and replay provenance pass their gates.
