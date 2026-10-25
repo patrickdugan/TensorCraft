@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "run_id": "zvz-polarity-a-control-001",
+  "pair_id": "zvz-polarity-a-001",
+  "variant": "control",
+  "engine": "starcraft_1161",
+  "agent": "pluto",
+  "agent_model": "md09b_1331000",
+  "agent_binary_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "engine_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "map_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "mod_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "opponent": "Steamhammer",
+  "player_race": "Zerg",
+  "opponent_race": "Zerg",
+  "spawn": "A",
+  "seed": 7,
+  "bandit_initial_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "result": "unknown",
+  "result_evidence": "none",
+  "result_evidence_sha256": null,
+  "agent_player_id": null
+}

@@ -1,0 +1,10 @@
+[package]
+name = "starcraft-replay-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+replay-core = { git = "https://github.com/broodwar-live/bw-engine", rev = "c1014fa068a927c3c9f09fc5cea7be157f9f5742" }
+serde_json = "1"
+sha2 = "0.10"
