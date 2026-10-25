@@ -94,12 +94,24 @@ class TraceTournamentAI final : public BWAPI::AIModule {
     close_output();
     if (!begin_output()) return;
     const bool full = BWAPI::Broodwar->isFlagEnabled(BWAPI::Flag::CompleteMapInformation);
+    BWAPI::Player self = BWAPI::Broodwar->self();
+    const int player_id = self ? self->getID() : -1;
+    const BWAPI::TilePosition start = self ? self->getStartLocation() : BWAPI::TilePosition(-1,-1);
+    const unsigned rng_seed = BWAPI::Broodwar->getRandomSeed();
+    std::string map_sha1 = BWAPI::Broodwar->mapHash();
+    if (map_sha1.size() != 40 || !std::all_of(map_sha1.begin(),map_sha1.end(),
+        [](unsigned char c) { return (c >= '0' && c <= '9') ||
+                                      (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'); }))
+      map_sha1.clear();
     std::fprintf(output,
       "{\"schema\":1,\"event\":\"start\",\"run_id\":\"%s\",\"variant\":\"%s\","
       "\"producer\":\"bwapi_tournament_trace_v1\",\"frame_step\":1,"
-      "\"full_information_at_start\":%s,\"replay_mode\":%s}\n",
+      "\"full_information_at_start\":%s,\"replay_mode\":%s,"
+      "\"self_player_id\":%d,\"start_tile_x\":%d,\"start_tile_y\":%d,"
+      "\"observed_rng_seed\":%u,\"map_sha1\":\"%s\"}\n",
       run_id.c_str(), variant.c_str(), full ? "true" : "false",
-      BWAPI::Broodwar->isReplay() ? "true" : "false");
+      BWAPI::Broodwar->isReplay() ? "true" : "false",
+      player_id, start.x, start.y, rng_seed, map_sha1.c_str());
   }
   void onFrame() override {
     if (!output || truncated || BWAPI::Broodwar->isPaused()) return;
@@ -107,9 +119,13 @@ class TraceTournamentAI final : public BWAPI::AIModule {
     const bool full = BWAPI::Broodwar->isFlagEnabled(BWAPI::Flag::CompleteMapInformation);
     int emitted = 0;
     int dropped = 0;
+    const int main_ai_event_ms = BWAPI::Broodwar->getLastEventTime();
+    const int logical_fps = BWAPI::Broodwar->getFPS();
     std::fprintf(output,
       "{\"schema\":1,\"event\":\"frame\",\"frame\":%d,"
-      "\"complete_information\":%s,\"units\":[", frame, full ? "true" : "false");
+      "\"complete_information\":%s,\"main_ai_event_ms\":%d,"
+      "\"logical_fps\":%d,\"units\":[",
+      frame, full ? "true" : "false", main_ai_event_ms, logical_fps);
     for (BWAPI::Unit u : BWAPI::Broodwar->getAllUnits()) {
       if (!u || !u->exists()) continue;
       if (!tracked(u)) continue;
