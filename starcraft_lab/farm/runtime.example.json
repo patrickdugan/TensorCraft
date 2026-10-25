@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "mods": {
+    "control": {
+      "mpq": "/private/BWLab/mods/control.mpq",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "devourer_speed_550": {
+      "mpq": "/private/BWLab/mods/speed550.mpq",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "capacity": {
+    "max_parallel": 2,
+    "cpu_budget_threads": 12,
+    "threads_per_match": 6,
+    "ram_budget_mb": 16000,
+    "ram_per_match_mb": 6000
+  },
+  "slots": [
+    {
+      "id": "game01",
+      "game_dir": "/private/BWLab/workers/game01/StarCraft",
+      "wineprefix": "/private/BWLab/workers/game01/wineprefix",
+      "display": ":91",
+      "port_base": 46100,
+      "bandit_paths": [
+        "/private/BWLab/workers/game01/StarCraft/bwapi-data/read/pluto_bandit_Steamhammer.txt",
+        "/private/BWLab/workers/game01/StarCraft/bwapi-data/write/pluto_bandit_Steamhammer.txt"
+      ]
+    },
+    {
+      "id": "game02",
+      "game_dir": "/private/BWLab/workers/game02/StarCraft",
+      "wineprefix": "/private/BWLab/workers/game02/wineprefix",
+      "display": ":92",
+      "port_base": 46200,
+      "bandit_paths": [
+        "/private/BWLab/workers/game02/StarCraft/bwapi-data/read/pluto_bandit_Steamhammer.txt",
+        "/private/BWLab/workers/game02/StarCraft/bwapi-data/write/pluto_bandit_Steamhammer.txt"
+      ]
+    }
+  ],
+  "launcher": {
+    "argv": [
+      "/private/BWLab/bin/launch_bwheadless_match",
+      "--run-id",
+      "{run_id}",
+      "--game-dir",
+      "{game_dir}",
+      "--map",
+      "{map_path}",
+      "--mod",
+      "{mod_mpq}",
+      "--output-replay",
+      "{replay_path}",
+      "--port-base",
+      "{port_base}"
+    ],
+    "timeout_seconds": 5400
+  },
+  "replay_probe_exe": "/private/BWLab/bin/starcraft-replay-probe"
+}

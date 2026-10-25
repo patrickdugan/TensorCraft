@@ -44,6 +44,8 @@ jobs:
           import hashlib, json
           from pathlib import Path
           rep = Path("_upstream_replay_fixture/tests/fixtures/larva_vs_mini.rep")
+          from starcraft_lab.farm.runner import _replay_envelope
+          assert _replay_envelope(rep), "A genuine upstream replay must pass the runner's envelope preflight"
           data = json.loads(Path("/tmp/starcraft_replay_probe.json").read_text())
           assert data["schema"] == 1
           assert data["replay_sha256"] == hashlib.sha256(rep.read_bytes()).hexdigest()
@@ -109,11 +111,89 @@ jobs:
         with:
           repository: bwapi/bwapi
           ref: v4.4.0
+          fetch-depth: 0
           path: _bwapi44
       - name: Initialize Win32 MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
+      - name: Generate versioned svnrev header using tagged git history
+        shell: pwsh
+        run: |
+          $commits = & git -C "_bwapi44" rev-list HEAD --count
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $rev = 2383 + [int]$commits
+          $header = @("#pragma once", "static const int SVN_REV = $rev;", '#include "starcraftver.h"')
+          $header | Set-Content "_bwapi44/bwapi/include/svnrev.h" -Encoding ascii
+          Write-Host "Built a local-only BWAPI revision header for tagged v4.4.0; revision $rev"
+      - name: Build pinned LGPL-3.0 BWAPILIB locally on CI
+        shell: pwsh
+        run: |
+          msbuild "_bwapi44\bwapi\BWAPILIB\BWAPILIB.vcxproj" /m /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $lib = Get-ChildItem "_bwapi44\bwapi" -Recurse -Filter "BWAPILIB.lib" | Select-Object -First 1
+          if (-not $lib) { throw "Tagged BWAPILIB.lib was not built" }
+          "BWAPILIB_PATH=$($lib.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Link x86 observer DLL for CI-only compatibility smoke
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "TensorCraftTrace.dll"
+          & cl /nologo /MD /EHsc /std:c++14 /LD "/I_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" $env:BWAPILIB_PATH Shlwapi.lib /link "/OUT:$target" /MACHINE:X86
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path $target)) { throw "Trace observer DLL linkage did not produce binary" }
+          & dumpbin /headers $target | Select-String "machine \(x86\)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile passive trace observer to x86 object (no engine linkage)
         shell: cmd
         run: cl /nologo /EHsc /std:c++14 /W4 /c /I "_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" /Fo:"%TEMP%\TensorCraftTrace.obj"
+
+  farm-synthetic-video:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg (CI asset-free codec proof)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth x11-utils
+      - name: Verify FFmpeg and libx264 support
+        run: |
+          ffmpeg -version | head -n 1
+          ffmpeg -encoders | grep libx264
+          ffprobe -version | head -n 1
+      - name: Encode/inspect synthetic 5-second 1080p30 YouTube-style MP4
+        run: |
+          mkdir -p /tmp/tensorcraft-video-test
+          python -m starcraft_lab.farm.smoke_video --output /tmp/tensorcraft-video-test/TEST_PATTERN_NOT_STARCRAFT.mp4
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("/tmp/tensorcraft-video-test")
+          data=json.loads((root/"TEST_PATTERN_NOT_STARCRAFT.receipt.json").read_text())
+          assert data["producer"]=="synthetic_ffmpeg_test_pattern"
+          assert data["youtube_container_and_codec_compatible"]
+          assert not data["actual_starcraft_footage"]
+          assert not data["gameplay_visual_content_verified"]
+          assert data["duration_seconds"]>=4.8
+          print("Synthetic YouTube MP4 encoding contract passed (NOT a StarCraft replay)")
+          PY
+      - name: Verify real private Xvfb to x11grab moving test-window capture
+        run: |
+          mkdir -p /tmp/tensorcraft-xvfb-parent
+          python -m starcraft_lab.farm.smoke_xvfb --output-dir /tmp/tensorcraft-xvfb-parent/capture --display :173
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("/tmp/tensorcraft-xvfb-parent/capture/receipt.json")
+          d=json.loads(p.read_text())
+          assert d["x11_capture_path_verified"]
+          assert d["youtube_container_and_codec_compatible"]
+          assert not d["actual_starcraft_gameplay"]
+          print("Real Xvfb+FFmpeg x11grab verified on synthetic moving image")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tensorcraft-youtube-codec-SYNTHETIC-TEST-NOT-GAMEPLAY
+          path: |
+            /tmp/tensorcraft-video-test/
+            /tmp/tensorcraft-xvfb-parent/capture/
+          retention-days: 7
