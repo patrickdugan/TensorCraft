@@ -66,6 +66,22 @@ class CalibrationGateTests(unittest.TestCase):
         self.assertTrue(any("duplicate_trace_hash" in e for e in outcome["exclusions"]))
         self.assertTrue(any("ineligible_trace" in e for e in outcome["exclusions"]))
         self.assertTrue(any("insufficient_attacks" in e for e in outcome["exclusions"]))
+    def test_firing_range_friction_attribution(self):
+        sample=reports()
+        expected={
+            "control":0.45,
+            "devourer_speed_550":0.25,
+            "devourer_cooldown_90":0.35,
+            "devourer_speed_550_cooldown_90":0.15,
+        }
+        for r in sample:
+            r["ready_with_visible_target_samples"]=120
+            r["ready_target_outside_nominal_range_fraction"]=expected[r["variant"]]
+        outcome=gate.propose(sample,receipts())
+        friction=outcome["target_range_friction_deltas"]
+        self.assertAlmostEqual(friction["speed_only_minus_baseline"],-0.20)
+        self.assertAlmostEqual(friction["combined_minus_cooldown_only"],-0.20)
+        self.assertIn("not missed shots",friction["meaning"])
     def test_conflicting_trajectory_fails_readiness(self):
         sample=reports()
         for r in sample:
