@@ -271,6 +271,8 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
     ready_seen=False
     native_ready_frame=None
     native_done_frame=None
+    video_ready_offset_seconds=None
+    video_done_offset_seconds=None
     playback_finished=False
     ffmpeg_return=None
     errors=[]
@@ -304,8 +306,18 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
         argv=[v.format_map(mapping) for v in verified["launcher"]]
         env["TC_REPLAY_SHA256"]=verified["replay_sha256"]
         env["TC_MOD_MPQ_SHA256"]=verified["mod_mpq_sha256"]
-        # The launcher must handle real 1.16.1 replay GUI loading with the
-        # same private mod MPQ; there is no fake "headless replay renderer".
+        # Start capture BEFORE launching StarCraft. BWAPI's onFrame marker is
+        # emitted after replay playback begins, so beginning recording then
+        # would silently drop the opening seconds. Preserve the full replay
+        # with visible menu/blank lead-in; record crop timestamps for editing.
+        ffargv=ffmpeg_argv(binary["ffmpeg_exe"],verified["display"],partial,
+                          verified["capture_limit_seconds"])
+        with (root/"ffmpeg.log").open("xb") as log:
+            recorder=subprocess.Popen(ffargv,env=env,
+                stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+        stack.callback(_stop_process,recorder)
+        video_clock=time.monotonic()
+        # The GUI launcher must load the actual 1.16.1 replay and matching MPQ.
         with (root/"playback.log").open("xb") as log:
             playback=subprocess.Popen(argv,env=env,cwd=verified["game_dir"],
                                       stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
@@ -319,21 +331,19 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
                 except ReplayLaunchError as error:
                     raise FarmError(f"invalid native BWAPI playback start: {error}") from error
                 native_ready_frame=verified_ready["frame"]
+                video_ready_offset_seconds=round(time.monotonic()-video_clock,3)
                 ready_seen=True
                 break
             if playback.poll() is not None:
                 errors.append("replay_launcher_exited_before_playback_ready")
                 break
+            if recorder.poll() is not None:
+                errors.append("encoder_exited_before_replay_start")
+                break
             time.sleep(.1)
         if not ready_seen:
             raise FarmError("replay playback was never confirmed ready; see playback.log")
-        ffargv=ffmpeg_argv(binary["ffmpeg_exe"],verified["display"],partial,
-                          verified["capture_limit_seconds"])
-        with (root/"ffmpeg.log").open("xb") as log:
-            recorder=subprocess.Popen(ffargv,env=env,
-                stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
-        stack.callback(_stop_process,recorder)
-        deadline=time.monotonic()+verified["capture_limit_seconds"]+8
+        deadline=video_clock+verified["capture_limit_seconds"]+8
         while time.monotonic()<deadline:
             if done.is_file():
                 from .replay_gui import marker, ReplayLaunchError
@@ -343,6 +353,7 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
                     errors.append(f"invalid_native_completion:{error}")
                     break
                 native_done_frame=verified_done["frame"]
+                video_done_offset_seconds=round(time.monotonic()-video_clock,3)
                 playback_finished=True
                 if recorder.poll() is None:
                     try:
@@ -375,6 +386,10 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
         "playback_ready_marker_seen":ready_seen,
         "native_ready_frame":native_ready_frame,
         "native_done_frame":native_done_frame,
+        "capture_started_before_playback":True,
+        "gameplay_segment_start_seconds_approx":video_ready_offset_seconds,
+        "gameplay_segment_end_seconds_approx":video_done_offset_seconds,
+        "includes_private_display_preroll":True,
         "playback_done_marker_seen":playback_finished,
         "ffmpeg_exit_code":ffmpeg_return,"errors":sorted(set(errors)),
         "full_game_replay_correctness_confirmed":False,
