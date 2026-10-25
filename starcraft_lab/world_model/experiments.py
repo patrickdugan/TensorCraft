@@ -51,12 +51,12 @@ def _uncertainty_cases(scenario:dict) -> list[tuple[str,dict]]:
 
 
 def estimate_all(scenarios:list[dict]|None=None,trials:int=40,seed:int=20261025,
-                 sensitivity_trials:int=8)->dict:
+                 sensitivity_trials:int=8,catalog_path:Path|None=None)->dict:
     if scenarios is None:
         scenarios=load_scenarios()
     if type(sensitivity_trials) is not int or not 1<=sensitivity_trials<=1000:
         raise ValueError("sensitivity_trials 1..1000 required")
-    catalogue=load_catalog()
+    catalogue=load_catalog(catalog_path)
     rows=[]
     for index,scenario in enumerate(scenarios):
         scid=scenario["id"]
@@ -136,9 +136,10 @@ def main(argv=None):
     p.add_argument("--seed",type=int,default=20261025)
     p.add_argument("--sensitivity-trials",type=int,default=8)
     p.add_argument("--output",type=Path)
+    p.add_argument("--catalog",type=Path,help="optional static model catalog overlaid from owned DAT")
     args=p.parse_args(argv)
     rows=load_scenarios(args.scenarios)
-    result=estimate_all(rows,args.trials,args.seed,args.sensitivity_trials)
+    result=estimate_all(rows,args.trials,args.seed,args.sensitivity_trials,args.catalog)
     encoded=json.dumps(result,indent=2,sort_keys=True)+"\n"
     if args.output:
         with args.output.open("x",encoding="utf-8") as out:
