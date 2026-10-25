@@ -49,7 +49,13 @@ python -m starcraft_lab.telemetry record --manifest /private-exp/manifest.json \
 python -m starcraft_lab.telemetry analyze --records /private-exp/records
 ```
 
-The collector archives Pluto's JSON event objects and hashes the source file without assuming event property names. Malformed JSON, absent Pluto logs or missing/mismatched outcome evidence remain flagged; games without an evidence-file SHA-256 match are excluded from the verified win-rate denominator. Paired analysis requires different mod hashes and compares the same map, side, seed, opponent, agent, version and initial bandit configuration. Zero matches produces a `null` win rate, never a fabricated zero.
+The collector archives Pluto's JSON event objects and hashes the source file without assuming event property names. **Hash agreement proves only that the supplied file matches the manifest; it does not authenticate the replay, game outcome, or agent identity.** These results are labelled artifact-backed reported outcomes pending an independent replay/referee result checker. Malformed JSON, absent Pluto logs or missing/mismatched outcome evidence remain flagged; games without an evidence-file SHA-256 match are excluded from the artifact-backed reported win-rate denominator. Paired analysis requires different mod hashes and compares the same map, side, seed, opponent, agent, version and initial bandit configuration. Zero matches produces a `null` win rate, never a fabricated zero.
+
+## Replay analysis integration option
+
+[broodwar-live/bw-engine](https://github.com/broodwar-live/bw-engine) now provides the MIT-licensed **replay-core** crate for legacy 1.16.1 replay parsing, player actions, build orders, and APM. This is a useful route to the first genuine behavior metrics from Pluto vs control/mod matches. Its **crates/bw-engine simulation is experimental/frozen and excluded from that MIT grant** because it derives in part from the unlicensed OpenBW code. The project explicitly distinguishes those components in LICENSE and NOTICE. Do not link the unlicensed simulation crate into this package. Outcome verification against replay/referee content must precede treating match-result declarations as independently confirmed results.
+
+The original Devourer 5.00 px/frame speed is independently documented by [Liquipedia's unit movement table](https://liquipedia.net/starcraft/Unit_Movement_Speed). The patch still rejects unexpected actual data values; published tables are used as a cross-check, not a substitute for inspecting owned data.
 
 ## First experiment protocol and acceptance gates
 
@@ -59,4 +65,4 @@ The collector archives Pluto's JSON event objects and hashes the source file wit
 - **Stage 3:** modded Pluto runs only after verifying the native game loads the patch and the agent receives consistent observations. Repeat with new opponents/maps; isolate one intervention at a time. Extract Devourer build incidence, first morph timing, engagements, survival time, tech timing, and gas/mineral opportunity cost from replays or a verified recorder. The present telemetry module does not infer those metrics.
 - **Stage 4:** adapt the same pipeline to Scout tank-assassination scenarios, Guardian redesign and Greater Spire tempo, with fresh baselines.
 
-**Integrity gates:** Pluto crashes are never assigned losses; unlabeled/manual outcomes are kept out of verified results; unexpected file layouts and shared Flingy references fail closed. A race's changed win rate alone cannot establish which mechanic caused it if the original openings, map positions, or opponent behavior differ.
+**Integrity gates:** Pluto crashes are never assigned losses; unlabeled/manual outcomes are kept out of artifact-backed summaries; unexpected file layouts and shared Flingy references fail closed. A race's changed win rate alone cannot establish which mechanic caused it if the original openings, map positions, or opponent behavior differ.
