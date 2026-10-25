@@ -1,0 +1,13 @@
+# Never commit proprietary StarCraft data, Pluto binaries, logs, or private test runs.
+*.dat
+*.mpq
+*.MPQ
+*.rep
+*.dll
+*.exe
+*.bin
+*.log
+*.receipt.json
+records/
+runs/
+__pycache__/
