@@ -100,3 +100,7 @@ The paired exact sign test and seeded exploratory bootstrap interval are descrip
 - **Stage 4:** adapt the same pipeline to Scout tank-assassination scenarios, Guardian redesign and Greater Spire tempo, with fresh baselines.
 
 **Integrity gates:** Pluto crashes are never assigned losses; unlabeled/manual outcomes are kept out of artifact-backed summaries; unexpected file layouts and shared Flingy references fail closed. A race's changed win rate alone cannot establish which mechanic caused it if the original openings, map positions, or opponent behavior differ.
+
+## Devourer 2×2 movement/cooldown variants
+
+The [factorial experiment protocol](DEVOURER_FACTORIAL.md) adds standalone speed-only and cooldown-only conditions and the combined `devourer_speed_550_cooldown_90` condition. The new `mod_factorial.py` reads the original cooldown from a user-extracted `weapons.dat`, then applies 90% rounded to integral frames. It emits two asset files and a hash receipt per variant. The established speed-only patcher and baseline remain unchanged. Exercise separate movement and attack-cadence smoke tests before the combined arm and Pluto match experiments.
