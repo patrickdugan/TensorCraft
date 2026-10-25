@@ -164,7 +164,7 @@ def analyze(directory: Path) -> dict:
     mismatched = []
     common = ("engine", "agent", "agent_model", "agent_binary_sha256",
               "engine_sha256", "map_sha256", "opponent", "player_race",
-              "opponent_race", "spawn", "seed", "bandit_initial_sha256")
+              "opponent_race", "spawn", "seed", "bandit_initial_sha256", "agent_player_id")
     for pair_id, rows in sorted(pairs.items()):
         if len(rows) != 2 or len({r["manifest"]["variant"] for r in rows}) != 2:
             mismatched.append({"pair_id": pair_id, "reason": "incomplete_or_repeated_variant"})
