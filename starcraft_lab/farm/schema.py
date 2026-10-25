@@ -224,6 +224,11 @@ def validate_runtime(runtime: dict, plan: dict, work_root: Path) -> dict:
             bandit = Path(raw).resolve()
             if not contained(bandit, game_dir) or bandit == game_dir:
                 raise FarmError("bandit path must live inside the disposable worker install")
+            if (not bandit.name.startswith("pluto_bandit_") or
+                not bandit.name.endswith(".txt") or
+                bandit.parent not in (game_dir/"bwapi-data"/"read",
+                                     game_dir/"bwapi-data"/"write")):
+                raise FarmError("bandit write targets must be Pluto stats in bwapi-data/read or write")
             bandit_paths.append(str(bandit))
         if len(set(bandit_paths)) != len(bandit_paths):
             raise FarmError("duplicated bandit path")
