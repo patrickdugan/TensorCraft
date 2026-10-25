@@ -15,7 +15,7 @@ OpenBW is useful for studying the engine but has no clearly published redistribu
 3. Run python -m starcraft_lab.mod inspect using both extracted files. Record SHA-256 values. Use the patch subcommand to create BOTH control and devourer_speed_550 variants, in separate new output folders, passing the two hashes as explicit --expect-* arguments.
 4. In PyMS/PyMPQ, create a fresh minimal MPQ for each variant. Import its staged flingy.dat under the internal archive path arr\flingy.dat. The archive must have the same internal path as the original. Name packages differently, for example sc_lab_control.mpq and sc_lab_devourer550.mpq.
 5. Extract the newly packaged arr\flingy.dat and compare SHA-256 with the patch receipt's output_sha256. Keep original Patch_rt.mpq untouched.
-6. Use MPQDraft's Load MPQ Patch mode on the private copy of the executable. The BWAPI/Chaoslauncher injector may conflict with MPQDraft's injector; verify launcher coexistence rather than presuming it. Record failures separately.
+6. **Use one launcher: MPQDraft with BWAPI's official MPQDraft injector plugin.** BWAPI's own `Release_Binary/MPQdraft/README.txt` describes the path: select LOAD MPQ PATCH; in Step 1 choose the private StarCraft.exe; in Step 2 select the mod archive; in Step 3 select the BWAPI injector plugin and finish. BWAPI's `BWAPI_PluginInjector` build writes an x86 `BWAPI_PluginInjector.qdp` to its MPQDraft distribution directory. Confirm that plugin came from your pinned BWAPI release/build and that the injector actually loads Pluto. Run unmodified BWAPI + Chaoslauncher as a **separate earlier baseline**, rather than simultaneously with MPQDraft. Inspect the first injected log and the resulting in-game speed before batch experiments. The MPQDraft + BWAPI single-launch route is documented by BWAPI; Pluto v2.0 compatibility remains to be proved by an actual match.
 
 References: [PyMS MPQ docs](https://github.com/poiuyqwert/PyMS/blob/master/Help/Files/MPQ.md), [StarEdit mod launching](https://wiki.staredit.net/wiki/Running_StarCraft_Mods), [Pluto](https://github.com/tscmoo/pluto), [BWAPI](https://github.com/bwapi/bwapi).
 
@@ -23,9 +23,9 @@ References: [PyMS MPQ docs](https://github.com/poiuyqwert/PyMS/blob/master/Help/
 
 From the repository root, run the following in one shell command (paths are examples):
 
-python -m starcraft_lab.preflight --game-dir C:\bw-exp\variant --units C:\bw-assets\units.dat --original-flingy C:\bw-assets\flingy.dat --staged-flingy C:\bw-exp\variant-payload\flingy.dat --receipt C:\bw-exp\variant-payload\flingy.dat.receipt.json --mpq-extracted-flingy C:\bw-exp\variant-extracted\flingy.dat --output C:\bw-exp\variant-preflight.json
+python -m starcraft_lab.preflight --game-dir C:\bw-exp\variant --units C:\bw-assets\units.dat --original-flingy C:\bw-assets\flingy.dat --staged-flingy C:\bw-exp\variant-payload\flingy.dat --receipt C:\bw-exp\variant-payload\flingy.dat.receipt.json --mpq-extracted-flingy C:\bw-exp\variant-extracted\flingy.dat --mpqdraft-bwapi-plugin C:\BWAPI\MPQDraft\BWAPI_PluginInjector.qdp --output C:\bw-exp\variant-preflight.json
 
-The audit hashes the binary, Pluto files, original MPQs and balance data. It checks PE architectures and the BWAPI ai entry. A successful static report **does not establish** that the executable is 1.16.1, the CPU supports AVX2, Pluto comes from the official v2 release, the custom MPQ was loaded, or the two injectors coexist.
+The audit hashes the binary, Pluto files, original MPQs, balance data and supplied BWAPI MPQDraft .qdp plugin, and verifies the plugin is an x86 PE file. It checks PE architectures and the BWAPI ai entry. A successful static report **does not establish** that the executable is 1.16.1, the CPU supports AVX2, Pluto comes from the official v2 release, the custom MPQ was loaded, or the two injectors coexist.
 
 ## Live movement proof
 
@@ -54,3 +54,7 @@ Set agent_player_id in each manifest to the replay parser's player_id assigned t
 ## Reproducibility cautions
 
 The trial manifest's map_sha256 hashes the exact map file used for play, while the replay probe's chk_sha256 hashes its embedded uncompressed CHK map data. These are distinct representations and generally have distinct hashes. Verify that both variants have consistent map identity. The Pluto bandit stats log can contain records for many games against an opponent. The collector currently preserves those JSON events as an unfiltered source archive; do not attribute its entire trajectory to one game until record IDs or match boundaries are independently reconciled.
+
+## Native MPQDraft/BWAPI source-of-truth
+
+BWAPI's own [MPQDraft release instructions](https://github.com/bwapi/bwapi/blob/main/Release_Binary/MPQdraft/README.txt) explicitly support loading an MPQ alongside the BWAPI plugin inside **one MPQDraft launcher**. The [plugin implementation](https://github.com/bwapi/bwapi/blob/main/bwapi/BWAPI_PluginInjector/mpqdraft.cpp) exports the MPQDraft interface and calls the BWAPI target loader; the [project build](https://github.com/bwapi/bwapi/blob/main/bwapi/BWAPI_PluginInjector/BWAPI_PluginInjector.vcxproj) emits the `.qdp` artifact. The previous concern about combining Chaoslauncher and MPQDraft applies to attempting simultaneous unrelated injectors, which this native pathway avoids. Record the actual plugin hash and which startup method succeeded.
