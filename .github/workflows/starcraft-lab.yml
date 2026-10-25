@@ -51,4 +51,9 @@ jobs:
           assert len(data["players"]) >= 2
           assert all("devourer" in p["unit_orders"] for p in data["players"])
           print("Replay fixture parsed:", data["map_name"], data["command_count"], "commands")
+          for player in data["players"]:
+              o = player["unit_orders"]
+              print("Sample:", player["name"], player["race"], "Muta orders", o["mutalisk"]["issued_orders"],
+                    "Devourer orders", o["devourer"]["issued_orders"],
+                    "Scout orders", o["scout"]["issued_orders"])
           PY
