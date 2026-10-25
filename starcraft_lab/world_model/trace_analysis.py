@@ -106,6 +106,14 @@ def read_trace(path: Path) -> dict:
                     _integer(event.get("frame_step"), "frame_step", 1, 1)
                     _boolean(event.get("full_information_at_start"), "full_information_at_start")
                     _boolean(event.get("replay_mode"), "replay_mode")
+                    _integer(event.get("self_player_id"), "self_player_id", -1, 11)
+                    _integer(event.get("start_tile_x"), "start_tile_x", -1, 256)
+                    _integer(event.get("start_tile_y"), "start_tile_y", -1, 256)
+                    _integer(event.get("observed_rng_seed"), "observed_rng_seed", 0, 2**32-1)
+                    map_sha1 = event.get("map_sha1")
+                    if not isinstance(map_sha1,str) or (map_sha1 and
+                           re.fullmatch(r"[0-9a-fA-F]{40}",map_sha1) is None):
+                        raise TraceError("invalid map_sha1")
                     header = event
                 elif kind == "frame":
                     if header is None or saw_end:
@@ -118,6 +126,8 @@ def read_trace(path: Path) -> dict:
                         missing_frames += frame - previous_frame - 1
                     previous_frame = frame
                     _boolean(event.get("complete_information"), "complete_information")
+                    _integer(event.get("main_ai_event_ms"), "main_ai_event_ms", 0, 60000)
+                    _integer(event.get("logical_fps"), "logical_fps", 0, 2000)
                     _integer(event.get("dropped_units"), "dropped_units", 0, 100000)
                     units = event.get("units")
                     if not isinstance(units, list) or len(units) > MAX_UNITS:
@@ -183,7 +193,8 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
     devourer_to_muta = []
     attack_ready_moving = 0
     attack_ready = 0
-    intervals_sampled = 0
+    ai_times = []
+    game_fps = []
     for fr in frames:
         if fr["dropped_units"]:
             # Mark this frame unusable for comparisons because the set was
@@ -191,6 +202,8 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
             unit_previous.clear()
             continue
         frame = fr["frame"]
+        ai_times.append(fr["main_ai_event_ms"])
+        game_fps.append(fr["logical_fps"])
         by_player = defaultdict(lambda: {"devourers": [], "mutas": []})
         for u in fr["units"]:
             typ = u["type"]
@@ -249,6 +262,14 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
         (fr["frame"] for fr in frames if any(u["type"] == DEVO for u in fr["units"])), None)
     return {
         "schema": 1, "run_id": header["run_id"], "variant": header["variant"],
+        "self_player_id":header["self_player_id"],
+        "start_tile":[header["start_tile_x"],header["start_tile_y"]],
+        "observed_rng_seed":header["observed_rng_seed"],
+        "map_sha1":header["map_sha1"],
+        "replay_mode":header["replay_mode"],
+        "main_ai_callback_ms_p50":median(ai_times) if ai_times else None,
+        "main_ai_callback_ms_p95":_quantile(ai_times,0.95),
+        "logical_fps_median":median(game_fps) if game_fps else None,
         "trace_sha256": trace["sha256"], "observed_frames": len(frames),
         "first_frame": frames[0]["frame"], "last_frame": frames[-1]["frame"],
         "missing_frames": trace["missing_frames"],
@@ -276,6 +297,9 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
         "devourer_cooldown_ready_and_moving_fraction":
             (attack_ready_moving/attack_ready if attack_ready else None),
         "interpretation": {
+            "main_ai_callback_ms": "BWAPI last AI callback duration, not necessarily full Pluto inference wall time",
+            "observed_rng_seed": "initial game RNG seed, recorded by BWAPI; planned seed labels alone do not enforce this value",
+            "map_sha1": "BWAPI's loaded map archive SHA-1, distinct from map-file SHA-256 or replay CHK hash",
             "speed_p90": "observed velocity in moving Devourers, biased by acceleration/turn and selection",
             "attack_intervals": "distinct attack-start signal transitions; weapon mechanics and target availability can lengthen the interval",
             "cooldown_reset": "post-attack cooldown counter, sometimes changed by status and jitter",
