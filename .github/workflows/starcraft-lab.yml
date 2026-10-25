@@ -116,6 +116,23 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
+      - name: Build pinned LGPL-3.0 BWAPILIB locally on CI
+        shell: pwsh
+        run: |
+          msbuild "_bwapi44\bwapi\BWAPILIB\BWAPILIB.vcxproj" /m /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $lib = Get-ChildItem "_bwapi44\bwapi" -Recurse -Filter "BWAPILIB.lib" | Select-Object -First 1
+          if (-not $lib) { throw "Tagged BWAPILIB.lib was not built" }
+          "BWAPILIB_PATH=$($lib.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Link x86 observer DLL for CI-only compatibility smoke
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "TensorCraftTrace.dll"
+          & cl /nologo /EHsc /std:c++14 /LD "/I_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" $env:BWAPILIB_PATH Shlwapi.lib /link "/OUT:$target" /MACHINE:X86
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path $target)) { throw "Trace observer DLL linkage did not produce binary" }
+          & dumpbin /headers $target | Select-String "machine \(x86\)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile passive trace observer to x86 object (no engine linkage)
         shell: cmd
         run: cl /nologo /EHsc /std:c++14 /W4 /c /I "_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" /Fo:"%TEMP%\TensorCraftTrace.obj"
