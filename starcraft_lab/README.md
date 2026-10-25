@@ -1,6 +1,6 @@
 # StarCraft Design Lab: Stage 0
 
-**Status:** offline file patcher and telemetry normalizer, with synthetic tests. No actual Pluto/OpenBW matches have been run, and no live engine compatibility has been established.
+**Status:** offline data patcher, installation static preflight, replay-core order probe, and telemetry summarizer with synthetic tests. No actual Pluto/OpenBW matches or live movement checks have been run.
 
 ## Sources and constraints
 
@@ -57,10 +57,26 @@ The collector archives Pluto's JSON event objects and hashes the source file wit
 
 The original Devourer 5.00 px/frame speed is independently documented by [Liquipedia's unit movement table](https://liquipedia.net/starcraft/Unit_Movement_Speed). The patch still rejects unexpected actual data values; published tables are used as a cross-check, not a substitute for inspecting owned data.
 
+## Stage 1 support: private mod launch and replay probe
+
+The precise, reversible packing and launcher protocol is in [STAGE1_SMOKE.md](STAGE1_SMOKE.md). Use it before attempting match runs. A live game is required to confirm MPQ loading, unchanged injection behavior, and Devourer speed; static file hashes alone cannot do that.
+
+The Python static audit accepts an owned 1.16.1 installation and extracted data. It checks that the staged patch matches the receipt, that the optional MPQ-extracted payload matches, and that Pluto's DLL and inference executable have the expected PE architectures. It reports unproven gameplay/version/CPU requirements explicitly. Run it with python -m starcraft_lab.preflight --help.
+
+For actual 1.16.1 replays, use the pinned MIT-only Rust replay-core probe:
+
+~~~bash
+cargo run --release --manifest-path starcraft_lab/replay_probe/Cargo.toml -- /private-exp/replays/game.rep /private-exp/parsed/game.json
+python -m starcraft_lab.telemetry record --manifest /private-exp/manifest.json --pluto-log /private-exp/pluto_bandit_OPPONENT.txt --result-evidence-file /private-exp/replays/game.rep --replay-report /private-exp/parsed/game.json --output /private-exp/records/game.json
+python -m starcraft_lab.telemetry analyze --records /private-exp/records
+~~~
+
+Set agent_player_id in the manifest to the appropriate replay-header ID. The collector rejects mismatched replay hashes, inconsistent first-leaver outcomes, incorrect race attribution and incomplete command decoding; it aggregates unit **order** incidence and timing by variant. These are observations of commands and model-estimated production, not combat snapshots. For full details consult the smoke protocol.
+
 ## First experiment protocol and acceptance gates
 
 - **Stage 0:** source inspection, data mapping, input hash guard, byte-level patch proof, synthetic fixture tests. This repository implements that stage.
-- **Stage 1:** disposable installation smoke check: confirm Devourer movement in OpenBW with original data and patched data, and separately in StarCraft 1.16.1 with a safely packaged `.dat` overlay. Check actual pixel displacement per frame and that all unrelated unit statistics are unchanged.
+- **Stage 1:** static preflight and replay tooling implemented; live disposable installation smoke check: confirm Devourer movement in OpenBW with original data and patched data, and separately in StarCraft 1.16.1 with a safely packaged `.dat` overlay. Check actual pixel displacement per frame and that all unrelated unit statistics are unchanged.
 - **Stage 2:** original-game Pluto v2.0 baseline against fixed bots, maps and openings. Confirm game outcomes with replays/referee, normalize telemetry. Use 30 matched A/B pairs as a *starting exploratory sample*, with mirrored spawns. Do not interpret early results as a definitive balance verdict.
 - **Stage 3:** modded Pluto runs only after verifying the native game loads the patch and the agent receives consistent observations. Repeat with new opponents/maps; isolate one intervention at a time. Extract Devourer build incidence, first morph timing, engagements, survival time, tech timing, and gas/mineral opportunity cost from replays or a verified recorder. The present telemetry module does not infer those metrics.
 - **Stage 4:** adapt the same pipeline to Scout tank-assassination scenarios, Guardian redesign and Greater Spire tempo, with fresh baselines.
