@@ -138,7 +138,7 @@ jobs:
         shell: pwsh
         run: |
           $target = Join-Path $env:RUNNER_TEMP "TensorCraftTrace.dll"
-          & cl /nologo /EHsc /std:c++14 /LD "/I_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" $env:BWAPILIB_PATH Shlwapi.lib /link "/OUT:$target" /MACHINE:X86
+          & cl /nologo /MD /EHsc /std:c++14 /LD "/I_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" $env:BWAPILIB_PATH Shlwapi.lib /link "/OUT:$target" /MACHINE:X86
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path $target)) { throw "Trace observer DLL linkage did not produce binary" }
           & dumpbin /headers $target | Select-String "machine \(x86\)"
