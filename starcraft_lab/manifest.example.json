@@ -18,5 +18,6 @@
   "bandit_initial_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
   "result": "unknown",
   "result_evidence": "none",
-  "result_evidence_sha256": null
+  "result_evidence_sha256": null,
+  "agent_player_id": null
 }
