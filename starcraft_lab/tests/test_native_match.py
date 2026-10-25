@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from starcraft_lab.farm import native_match as nm, replay_gui as rg
+from starcraft_lab.farm import native_match as nm, replay_gui as rg, runner
 
 
 def event(kind, run_id="trial01", frame=20):
@@ -104,6 +104,15 @@ class NativeMatchTests(unittest.TestCase):
             self.assertEqual(result["output_replay_sha256"],nm.checksum(replay))
             self.assertEqual(result["end_frame"],1700)
             self.assertTrue((out/"native_match_receipt.json").is_file())
+            self.assertTrue(runner._native_match_callback_attested(
+                out,replay,nm.checksum(mpq),nm.checksum(mapfile),"trial01"))
+            receipt_path=out/"native_match_receipt.json"
+            tampered=json.loads(receipt_path.read_text())
+            tampered["mod_mpq_sha256"]="0"*64
+            receipt_path.write_text(json.dumps(tampered))
+            with self.assertRaisesRegex(runner.FarmError,"receipt does not match"):
+                runner._native_match_callback_attested(
+                    out,replay,nm.checksum(mpq),nm.checksum(mapfile),"trial01")
 
     def test_false_match_marker_rejected_by_parser(self):
         with tempfile.TemporaryDirectory() as temp:
