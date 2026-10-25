@@ -216,6 +216,9 @@ def _single_game(game:dict, slot:dict, settings:dict,
         argv=substitute_command(settings["launcher"]["argv"], values)
         launch_sha=hashlib.sha256(json.dumps(argv,sort_keys=False).encode()).hexdigest()
         env=os.environ.copy()
+        source_root=str(Path(__file__).resolve().parents[2])
+        env["PYTHONPATH"]=source_root+(
+            os.pathsep+env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
         env.update({
             "WINEPREFIX":slot["wineprefix"],
             "DISPLAY":slot["display"],
