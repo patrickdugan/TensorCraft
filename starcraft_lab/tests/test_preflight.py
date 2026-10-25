@@ -66,6 +66,21 @@ class PreflightTests(unittest.TestCase):
             paths[3].write_bytes(b"corrupt")
             result=preflight.inspect_install(*paths)
             self.assertIn("staged_data_not_expected_patch",result["failures"])
+    def test_mpqdraft_bwapi_plugin_architecture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            paths=fixture(root)
+            plugin=root/"BWAPI_PluginInjector.qdp"
+            plugin.write_bytes(pe(0x14c))
+            result=preflight.inspect_install(*paths, mpqdraft_bwapi_plugin=plugin)
+            self.assertEqual(result["failures"], [])
+            self.assertEqual(result["checks"]["bwapi_mpqdraft_plugin"]["pe_machine"], "0x014c")
+            plugin.write_bytes(pe(0x8664))
+            result=preflight.inspect_install(*paths, mpqdraft_bwapi_plugin=plugin)
+            self.assertIn("bwapi_mpqdraft_plugin_not_x86",result["failures"])
+            plugin.unlink()
+            result=preflight.inspect_install(*paths, mpqdraft_bwapi_plugin=plugin)
+            self.assertIn("bwapi_mpqdraft_plugin_missing",result["failures"])
     def test_missing_executable(self):
         with tempfile.TemporaryDirectory() as tmp:
             paths=fixture(Path(tmp))
