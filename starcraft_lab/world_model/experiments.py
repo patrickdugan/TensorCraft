@@ -74,7 +74,7 @@ def estimate_all(scenarios:list[dict]|None=None,trials:int=40,seed:int=20261025,
         }
         with_spores=predictions["devourer_speed_550_cooldown_90"]
         no_spores=simulate_batch(scenario,"devourer_speed_550_cooldown_90",
-                                 sensitivity_trials,first_seed+303,
+                                 trials,first_seed,
                                  ablate_spores=True,catalog=catalogue["units"])
         spore_uplift=round(with_spores["a_favorable_fraction"]-no_spores["a_favorable_fraction"],4)
         p=with_spores["a_favorable_fraction"]
@@ -96,7 +96,7 @@ def estimate_all(scenarios:list[dict]|None=None,trials:int=40,seed:int=20261025,
                 "with_spore_model":with_spores["a_favorable_fraction"],
                 "without_spores":no_spores["a_favorable_fraction"],
                 "surrogate_uplift":spore_uplift,
-                "note":"Different Monte Carlo samples, exploratory mechanistic check; not observed causation"
+                "note":"Same initial Monte Carlo seeds with dynamics diverging after intervention; uncalibrated mechanistic hypothesis"
             },
             "experiment_priority":priority,
             "priority_components":{"boundary":round(boundary,4),
