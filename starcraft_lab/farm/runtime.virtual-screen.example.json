@@ -76,5 +76,7 @@
   "replay_probe_exe": "/private/BWLab/bin/starcraft-replay-probe",
   "backend": "Wine_Xvfb_MPQDraft_BWAPI_auto_menu_SINGLE_PLAYER",
   "true_headless": false,
-  "status": "Example for virtual display Pluto versus built-in Zerg AI, not a verified live executable test. Xvfb per worker must be provisioned, and local assets/licenses preserved."
+  "status": "Example for virtual display Pluto versus built-in Zerg AI, not a verified live executable test. Xvfb per worker must be provisioned, and local assets/licenses preserved.",
+  "display_backend": "managed_xvfb",
+  "notes": "Each match worker gets a private automatically managed Xvfb display, Xauthority and Wine prefix. This is hidden GUI mode, NOT rendering-free bwheadless. Requires Xvfb/xauth/xdpyinfo on host, modernized MPQDraft CLI, native Win32 tournament observer and licensed game files."
 }
