@@ -182,8 +182,7 @@ def relation_sets(catalog: dict) -> dict[str, frozenset]:
         "belongs_to": frozenset((k,v["race"]) for k,v in units.items()),
         "attacks": frozenset((k,d) for k,v in units.items()
                               for d,w in v["weapons"].items() if w is not None),
-        "morphs_from": frozenset((k,v["special"][2].replace("morph_from_",""))
-                                 for k,v in units.items()
+        "morphs_from": frozenset((k,"mutalisk") for k,v in units.items()
                                  if "morph_from_mutalisk" in v.get("special", [])),
         "requires_tech": frozenset((k,v["morph_incremental"]["requires"])
                                    for k,v in units.items() if "morph_incremental" in v),
