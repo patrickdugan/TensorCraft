@@ -8,8 +8,8 @@ import json
 from pathlib import Path
 import re
 
-HEX = re.compile(r"[0-9a-f]{64}\\Z")
-RUN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\\Z")
+HEX = re.compile(r"[0-9a-f]{64}\Z")
+RUN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z")
 RESULTS = {"win", "loss", "draw", "crash", "unknown"}
 REQUIRED = (
     "schema", "run_id", "pair_id", "variant", "engine", "agent",
