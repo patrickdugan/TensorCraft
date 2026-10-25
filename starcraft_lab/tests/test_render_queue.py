@@ -56,7 +56,7 @@ class RenderQueueTests(unittest.TestCase):
             self.assertEqual(len(selection["selected"]),2)
             self.assertEqual(selection["selected"][0]["issued_orders"]["devourer"],5)
             self.assertFalse(selection["selected"][0]["gameplay_video_verified"])
-            with self.assertRaisesRegex(FarmError,"destination already exists"):
+            with self.assertRaisesRegex(FarmError,"directory already exists"):
                 render_queue.choose(root/"out",root/"selection",count=2)
 
     def test_invalid_parser_outputs_fail_closed(self):
