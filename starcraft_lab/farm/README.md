@@ -127,7 +127,7 @@ Every replay's full source file, map SHA-256, mod MPQ SHA-256, native executable
 
 ## Acceptance gates before any real YouTube upload
 
-- **Gate A: Headless worker.** One native BW 1.16.1 + Pluto v2.0 game finishes without GUI, emits a replay that Rust replay-core parses and captures an observed-game-start/result record; the expected global mod effect has been demonstrated in-engine.
+- **Gate A: Unattended worker.** One native BW 1.16.1 + Pluto v2.0 game finishes on an invisible Wine/Xvfb display or verified true bwheadless backend, emits a replay parsed by Rust replay-core, and demonstrates expected mod effects in-engine.
 - **Gate B: Isolation.** Two workers finish independent games concurrently without sharing bandit files, game executables, Wine prefixes, ports, or X11 display, and with stable inference latency.
 - **Gate C: Playback.** The actual modded `.rep` plays to completion in a virtual graphical Wine display; an independent reviewer confirms representative gameplay frames and start/end state.
 - **Gate D: Video.** FFprobe passes 1080p H.264/AAC faststart checks, and an actual visual review confirms continuous correct StarCraft content. Confirm the expected 4:3 aspect ratio, readable UI, and correct copyright-clear soundtrack or intentional silence.
@@ -163,9 +163,10 @@ host/join and -l DLL loading but does not advertise --mpq as a standard flag.
 
 Copy [runtime.virtual-screen.example.json](runtime.virtual-screen.example.json)
 to a private runtime.json, replacing every absolute path, mod/archive hash,
-game installation and inference-model path. Start each worker's private Xvfb
-display with Xauthority and -nolisten tcp, then prepare and run the existing
-farm commands. Results are not referee-confirmed or mod-physics-validated
+game installation and inference-model path. The example sets
+display_backend=managed_xvfb: the runner starts each isolated Xvfb server
+with private Xauthority and -nolisten tcp automatically, then closes it
+after the worker finishes. Prepare and run the existing farm commands. Results are not referee-confirmed or mod-physics-validated
 until the separate actual-game acceptance steps pass.
 
 ### Modernized MPQDraft CLI and automatic replay playback
@@ -196,9 +197,9 @@ until a local native playback test succeeds.
 
 ### Windows CI linking and license note
 
-BWAPI is licensed under LGPL-3.0. The optional Windows CI build attempts
-a full static BWAPILIB build from pinned v4.4.0 source and links the x86
-observer. No LGPL-containing linked DLL is distributed by this public CI
+BWAPI is licensed under LGPL-3.0. The Windows CI build has
+**successfully** built the pinned v4.4.0 static BWAPILIB and linked the
+x86 observer, including its native match/replay marker exports. No LGPL-containing linked DLL is distributed by this public CI
 until its LGPL combined-work/relinking requirements are reviewed. The
 original game files and Pluto weights remain private.
 
