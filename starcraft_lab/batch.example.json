@@ -1,0 +1,21 @@
+{
+  "experiment_id": "devourer_speed_550_v1",
+  "pairs": 30,
+  "schedule_seed": 20261025,
+  "map_file": "C:\\BW-Lab\\maps\\FightingSpirit.scx",
+  "initial_bandit_file": "C:\\BW-Lab\\baseline\\pluto_bandit_Steamhammer.txt",
+  "conditions": {
+    "control": {
+      "game_dir": "C:\\BW-Lab\\installs\\control",
+      "mod_file": "C:\\BW-Lab\\mods\\control\\flingy.dat"
+    },
+    "devourer_speed_550": {
+      "game_dir": "C:\\BW-Lab\\installs\\speed550",
+      "mod_file": "C:\\BW-Lab\\mods\\speed550\\flingy.dat"
+    }
+  },
+  "agent_model": "md09b_1331000",
+  "opponent": "Steamhammer",
+  "player_race": "Zerg",
+  "opponent_race": "Zerg"
+}
