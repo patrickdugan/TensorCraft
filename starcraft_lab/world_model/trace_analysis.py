@@ -20,6 +20,7 @@ MAX_FRAMES = 1_500_000
 MAX_UNITS = 160
 DEVO = 62
 MUTA = 43
+AIR_UNIT_TYPES = frozenset((8,9,11,12,42,43,44,47,58,60,62,69,70,71,72,84))
 ID_RE = re.compile(r"[A-Za-z0-9_.-]{1,80}\Z")
 VARIANTS = {
     "control": {"speed": 5.0, "cooldown": 100},
@@ -224,7 +225,7 @@ def analyze_trace(trace: dict, *, require_complete: bool = False,
                         attack_ready_moving += 1
                     enemy = frame_by_unit_id.get(u["target_id"])
                     if (enemy is not None and enemy["player"] != player
-                            and enemy["player"] >= 0 and enemy["type"] != typ):
+                            and enemy["player"] >= 0 and enemy["type"] in AIR_UNIT_TYPES):
                         dist = math.hypot(u["x"]-enemy["x"],u["y"]-enemy["y"])
                         target_range_visible_samples += 1
                         target_distances_ready.append(dist)
@@ -337,8 +338,10 @@ def analyze_trace(trace: dict, *, require_complete: bool = False,
     }
 
 
-def analyze_file(path: Path, *, require_complete=False) -> dict:
-    return analyze_trace(read_trace(path), require_complete=require_complete)
+def analyze_file(path: Path, *, require_complete=False,
+                 devourer_range_px:float=192) -> dict:
+    return analyze_trace(read_trace(path), require_complete=require_complete,
+                         devourer_range_px=devourer_range_px)
 
 
 def compare_four(records: list[dict], *, minimum_speed_samples=30,
@@ -390,13 +393,15 @@ def main():
     one=sub.add_parser("report")
     one.add_argument("--trace",type=Path,required=True)
     one.add_argument("--strict",action="store_true")
+    one.add_argument("--devourer-range-px",type=float,default=192)
     one.add_argument("--output",type=Path,required=True)
     many=sub.add_parser("compare")
     many.add_argument("--reports",type=Path,required=True)
     many.add_argument("--output",type=Path,required=True)
     args=p.parse_args()
     if args.command=="report":
-        result=analyze_file(args.trace,require_complete=args.strict)
+        result=analyze_file(args.trace,require_complete=args.strict,
+                            devourer_range_px=args.devourer_range_px)
     else:
         reports=[json.loads(f.read_text(encoding="utf-8")) for f in sorted(args.reports.glob("*.json"))]
         result=compare_four(reports)
