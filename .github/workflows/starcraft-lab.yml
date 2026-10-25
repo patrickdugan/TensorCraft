@@ -44,6 +44,8 @@ jobs:
           import hashlib, json
           from pathlib import Path
           rep = Path("_upstream_replay_fixture/tests/fixtures/larva_vs_mini.rep")
+          from starcraft_lab.farm.runner import _replay_envelope
+          assert _replay_envelope(rep), "A genuine upstream replay must pass the runner's envelope preflight"
           data = json.loads(Path("/tmp/starcraft_replay_probe.json").read_text())
           assert data["schema"] == 1
           assert data["replay_sha256"] == hashlib.sha256(rep.read_bytes()).hexdigest()
