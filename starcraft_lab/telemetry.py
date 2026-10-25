@@ -95,7 +95,7 @@ def collect(manifest_file: Path, pluto_log: Path | None, dest: Path, evidence_fi
         errors.append("pluto_log_not_provided")
     record = {"schema": 1, "manifest": m, "pluto_log_sha256": raw_sha,
               "pluto_json_events": events, "telemetry_errors": errors,
-              "result_evidence_verified": evidence_verified}
+              "evidence_hash_matches": evidence_verified}
     if dest.exists():
         raise FileExistsError(f"refusing to overwrite {dest}")
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -105,9 +105,9 @@ def collect(manifest_file: Path, pluto_log: Path | None, dest: Path, evidence_fi
     return record
 
 
-def verified(r: dict) -> bool:
+def artifact_backed(r: dict) -> bool:
     m = r["manifest"]
-    return (not r["telemetry_errors"] and r.get("result_evidence_verified") is True
+    return (not r["telemetry_errors"] and r.get("evidence_hash_matches") is True
             and m["result"] in ("win", "loss", "draw")
             and m["result_evidence"] in ("replay", "tournament"))
 
@@ -131,7 +131,7 @@ def analyze(directory: Path) -> dict:
     for r in records:
         m = r["manifest"]
         v = groups[m["variant"]]
-        if verified(r):
+        if artifact_backed(r):
             v[m["result"]] += 1
         else:
             v["excluded"] += 1
@@ -141,7 +141,7 @@ def analyze(directory: Path) -> dict:
     for key, v in sorted(groups.items()):
         denominator = v["win"] + v["loss"]
         summaries[key] = {**v, "decisive_games": denominator,
-                          "win_rate_decisive": v["win"] / denominator if denominator else None}
+                          "reported_win_rate_decisive": v["win"] / denominator if denominator else None}
     paired = []
     mismatched = []
     common = ("engine", "agent", "agent_model", "agent_binary_sha256",
@@ -157,13 +157,13 @@ def analyze(directory: Path) -> dict:
             mismatched.append({"pair_id": pair_id, "reason": "different_conditions"})
         elif a["mod_sha256"] == b["mod_sha256"]:
             mismatched.append({"pair_id": pair_id, "reason": "same_mod_hash"})
-        elif not (verified(left) and verified(right)):
-            mismatched.append({"pair_id": pair_id, "reason": "unverified_outcome"})
+        elif not (artifact_backed(left) and artifact_backed(right)):
+            mismatched.append({"pair_id": pair_id, "reason": "missing_artifact_backing"})
         else:
             paired.append({"pair_id": pair_id, "results": {a["variant"]: a["result"],
                                                               b["variant"]: b["result"]}})
     return {"schema": 1, "record_count": len(records), "variants": summaries,
-            "verified_pairs": paired, "excluded_pairs": mismatched}
+            "artifact_backed_pairs": paired, "excluded_pairs": mismatched}
 
 
 def main(argv: list[str] | None = None) -> int:
