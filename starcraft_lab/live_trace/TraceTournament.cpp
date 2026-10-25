@@ -31,6 +31,11 @@ bool render_started = false;
 std::string render_run_id;
 std::string render_ready_path;
 std::string render_done_path;
+bool match_active = false;
+bool match_started = false;
+std::string match_run_id;
+std::string match_ready_path;
+std::string match_done_path;
 
 std::string read_env(const char* key) {
   char buf[1024] = {};
@@ -63,6 +68,23 @@ bool write_render_marker(const std::string& path, const char* kind, int frame) {
       "\"event\":\"%s\",\"run_id\":\"%s\","
       "\"replay_mode\":true,\"frame\":%d}\n",
       kind, render_run_id.c_str(), frame);
+  DWORD written = 0;
+  bool ok = n > 0 && n < (int)sizeof(body) &&
+            WriteFile(file, body, (DWORD)n, &written, nullptr) && written == (DWORD)n;
+  CloseHandle(file);
+  return ok;
+}
+bool write_match_marker(const std::string& path, const char* kind, int frame) {
+  if (!match_active || !absolute_windows_path(path)) return false;
+  HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                            FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (file == INVALID_HANDLE_VALUE) return false;
+  char body[360] = {};
+  const int n = std::snprintf(body, sizeof(body),
+      "{\"schema\":1,\"producer\":\"bwapi_tournament_match_marker\","
+      "\"event\":\"%s\",\"run_id\":\"%s\","
+      "\"replay_mode\":false,\"frame\":%d}\n",
+      kind, match_run_id.c_str(), frame);
   DWORD written = 0;
   bool ok = n > 0 && n < (int)sizeof(body) &&
             WriteFile(file, body, (DWORD)n, &written, nullptr) && written == (DWORD)n;
@@ -125,6 +147,14 @@ class TraceTournamentAI final : public BWAPI::AIModule {
                     absolute_windows_path(render_ready_path) &&
                     absolute_windows_path(render_done_path) &&
                     render_ready_path != render_done_path;
+    match_started = false;
+    match_run_id = read_env("TC_MATCH_RUN_ID");
+    match_ready_path = read_env("TC_MATCH_READY_PATH");
+    match_done_path = read_env("TC_MATCH_DONE_PATH");
+    match_active = !BWAPI::Broodwar->isReplay() && safe_id(match_run_id) &&
+                   absolute_windows_path(match_ready_path) &&
+                   absolute_windows_path(match_done_path) &&
+                   match_ready_path != match_done_path;
     if (!begin_output()) return;
     const bool full = BWAPI::Broodwar->isFlagEnabled(BWAPI::Flag::CompleteMapInformation);
     BWAPI::Player self = BWAPI::Broodwar->self();
@@ -147,6 +177,10 @@ class TraceTournamentAI final : public BWAPI::AIModule {
       player_id, start.x, start.y, rng_seed, map_sha1.c_str());
   }
   void onFrame() override {
+    if (match_active && !match_started && !BWAPI::Broodwar->isPaused() &&
+        BWAPI::Broodwar->getFrameCount() >= 1)
+      match_started = write_match_marker(
+          match_ready_path, "ready", BWAPI::Broodwar->getFrameCount());
     if (render_active && !render_started && !BWAPI::Broodwar->isPaused() &&
         BWAPI::Broodwar->getFrameCount() >= 1)
       render_started = write_render_marker(
@@ -194,6 +228,8 @@ class TraceTournamentAI final : public BWAPI::AIModule {
     }
   }
   void onEnd(bool winner_for_current_player) override {
+    if (match_active && match_started && !BWAPI::Broodwar->isReplay())
+      write_match_marker(match_done_path, "done", BWAPI::Broodwar->getFrameCount());
     if (render_active && render_started && BWAPI::Broodwar->isReplay())
       write_render_marker(render_done_path, "done", BWAPI::Broodwar->getFrameCount());
     if (!output) return;
