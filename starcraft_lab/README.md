@@ -104,3 +104,11 @@ The paired exact sign test and seeded exploratory bootstrap interval are descrip
 ## Devourer 2×2 movement/cooldown variants
 
 The [factorial experiment protocol](DEVOURER_FACTORIAL.md) adds standalone speed-only and cooldown-only conditions and the combined `devourer_speed_550_cooldown_90` condition. The new `mod_factorial.py` reads the original cooldown from a user-extracted `weapons.dat`, then applies 90% rounded to integral frames. It emits two asset files and a hash receipt per variant. The established speed-only patcher and baseline remain unchanged. Exercise separate movement and attack-cadence smoke tests before the combined arm and Pluto match experiments.
+
+## Stage 3: observational calibration beside Pluto
+
+The [BWAPI tournament sidecar](live_trace/README.md) adds per-frame read-only observation of unit velocity, firing events and cooldown resets, Acid Spore stacks and target distance while Pluto stays the primary AI. Windows x86 syntax compilation is CI-checked against pinned BWAPI v4.4.0 headers. Full DLL linkage and actual native gameplay remain required.
+
+The [trace analyzer](world_model/trace_analysis.py) validates bounded JSONL and reports movement speed, attack intervals, spore changes, visible-formation separation, and the fraction of cooldown-ready frames spent with a visible air target outside nominal weapon range. The [calibration gate](world_model/calibration_gate.py) demands repeated observations in all four interventions and outputs a proposal without changing world-model constants. The [provenance binder](world_model/provenance.py) compares observed RNG seed, player start tile and BWAPI map SHA-1 to the experiment manifest and parsed replay.
+
+The sidecar uses the normal BWAPI tournament interface. Controlled-game and Pluto performance-neutrality tests on the actual Windows installation are the remaining acceptance checks.
