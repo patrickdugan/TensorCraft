@@ -109,7 +109,7 @@ def collect(manifest_file: Path, pluto_log: Path | None, dest: Path,
     elif m["agent"] == "pluto":
         errors.append("pluto_log_not_provided")
     record = {"schema": 1, "manifest": m, "pluto_log_sha256": raw_sha,
-              "pluto_json_events": events, "telemetry_errors": errors,
+              "pluto_json_events": events, "pluto_event_pairing_verified": False, "telemetry_errors": errors,
               "evidence_hash_matches": evidence_verified,
               "replay_report_sha256": replay_report_sha256,
               "replay_observations": replay_observations,
