@@ -68,7 +68,8 @@ def propose(reports: list[dict], receipts: dict | None = None) -> dict:
         by_arm[variant].append(report)
 
     arm = {}
-    for variant, (expected_speed, expected_cd) in VARIANTS.items():
+    for variant, expected in VARIANTS.items():
+        expected_speed, expected_cd = expected["speed"], expected["cooldown"]
         rows = by_arm[variant]
         speed = median(r["devourer_moving_speed_p90_px_per_frame"] for r in rows) if rows else None
         cadence = median(r["devourer_attack_interval_median_frames"] for r in rows) if rows else None
@@ -95,7 +96,7 @@ def propose(reports: list[dict], receipts: dict | None = None) -> dict:
         for name, r in receipts.items():
             speed = r.get("new_speed_raw")
             cadence = r.get("new_cooldown_frames")
-            expected_speed, expected_cd = VARIANTS[name]
+            expected_speed, expected_cd = VARIANTS[name]["speed"], VARIANTS[name]["cooldown"]
             if r.get("schema") != 2 or speed != round(expected_speed*256) or cadence != expected_cd:
                 raise TraceError(f"{name}: receipt disagrees with intended static intervention")
             hashes = (r.get("output_flingy_sha256"), r.get("output_weapons_sha256"))
