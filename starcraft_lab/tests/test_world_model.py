@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from starcraft_lab import mod_factorial
-from starcraft_lab.world_model import ontology, dat_extract as dat, combat, experiments
+from starcraft_lab.world_model import ontology, dat_extract as dat, combat, experiments, calibrate
 
 
 def col_offset(columns,name):
@@ -97,6 +97,58 @@ class DatModelTests(unittest.TestCase):
             dat.extract({"units.dat":Path("fake.dat")})
         with self.assertRaisesRegex(ValueError,"expected"):
             dat.decode(b"",228,dat.UNIT_COLUMNS)
+
+
+class CalibrateTests(unittest.TestCase):
+    def seed_records(self):
+        reference=ontology.load_catalog()
+        tables={}
+        for key,(count,cols) in dat.TABLES.items():
+            tables[key]=dat.decode(bytes(dat.byte_length(cols)),count,cols)
+        ref_units=reference["units"]
+        for number,(name,spec) in enumerate(ref_units.items()):
+            row=tables["units.dat"][spec["unit_id"]]
+            fid=spec["unit_id"]
+            row["flingy_id"]=fid
+            row["hitpoints_raw"]=int(spec["hp"]*256)
+            row["shield_points"]=spec["shields"]
+            row["armor"]=spec["armor"]
+            row["mineral_cost"]=spec["cost"]["minerals"]
+            row["gas_cost"]=spec["cost"]["gas"]
+            row["supply_required_raw"]=int(spec["cost"]["supply"]*2)
+            tables["flingy.dat"][fid]["top_speed_raw"]=round(spec["speed_px_per_frame"]*256)
+            for j,field in enumerate(("air_weapon_id","ground_weapon_id")):
+                domain=("air","ground")[j]
+                weapon=spec["weapons"][domain]
+                if weapon is not None:
+                    wid=1+(number*2+j)
+                    row[field]=wid
+                    table=tables["weapons.dat"][wid]
+                    table["damage_amount"]=weapon["damage"]
+                    table["cooldown"]=weapon["cooldown_frames"]
+                    table["max_range"]=weapon["range_tiles"]*32
+                    table["damage_type"]={"explosive":1,"concussive":2,"normal":3,"ignore_armor":4}[weapon["damage_type"]]
+        report={"schema":1,"scope":"all_vanilla_legacy_DAT_rows",
+                "tables":tables,
+                "provenance":{name:{"sha256":"f"*64} for name in tables}}
+        return reference,report
+
+    def test_local_overlay_and_hashes(self):
+        reference,report=self.seed_records()
+        generated=calibrate.overlay(reference,report)
+        self.assertEqual(generated["units"]["devourer"]["model_status"],"local_DAT_static")
+        self.assertEqual(generated["units"]["devourer"]["weapons"]["air"]["cooldown_frames"],100)
+        self.assertEqual(generated["units"]["devourer"]["speed_px_per_frame"],5)
+        self.assertGreater(generated["overlay_metadata"]["filled_scalar_fields"],100)
+        self.assertEqual(generated["overlay_metadata"]["source_sha256"]["units.dat"],"f"*64)
+        self.assertEqual(reference["units"]["devourer"]["model_status"],"reference_prior")
+
+    def test_modded_data_refused_as_pristine_baseline(self):
+        reference,report=self.seed_records()
+        report["tables"]["weapons.dat"][1+1*2]["cooldown"]=90
+        report["tables"]["units.dat"][62]["air_weapon_id"]=3
+        with self.assertRaises(ValueError):
+            calibrate.overlay(reference,report)
 
 
 class CombatModelTests(unittest.TestCase):
