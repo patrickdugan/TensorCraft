@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "max_parallel": 1,
+  "capacity": {
+    "cpu_budget_threads": 4,
+    "threads_per_render": 3,
+    "ram_budget_mb": 8192,
+    "ram_per_render_mb": 4096
+  },
+  "capture_limit_seconds": 3600,
+  "ready_timeout_seconds": 120,
+  "replay_launcher": [
+    "/private/BWLab/bin/replay_gui_wrapper",
+    "--replay",
+    "{replay}",
+    "--mod",
+    "{mod_mpq}",
+    "--ready",
+    "{ready_marker}",
+    "--done",
+    "{done_marker}",
+    "--display",
+    "{display}",
+    "--game-dir",
+    "{game_dir}"
+  ],
+  "slots": [
+    {
+      "id": "video01",
+      "game_dir": "/private/BWLab/render-workers/video01/StarCraft",
+      "wineprefix": "/private/BWLab/render-workers/video01/wineprefix",
+      "display": ":121"
+    }
+  ]
+}
