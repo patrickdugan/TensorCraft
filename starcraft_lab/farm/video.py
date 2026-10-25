@@ -269,6 +269,8 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
     recorder=None
     xvfb=None
     ready_seen=False
+    native_ready_frame=None
+    native_done_frame=None
     playback_finished=False
     ffmpeg_return=None
     errors=[]
@@ -311,6 +313,12 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
         deadline=time.monotonic()+verified["ready_timeout_seconds"]
         while time.monotonic()<deadline:
             if ready.is_file():
+                from .replay_gui import marker, ReplayLaunchError
+                try:
+                    verified_ready=marker(ready,"ready",run)
+                except ReplayLaunchError as error:
+                    raise FarmError(f"invalid native BWAPI playback start: {error}") from error
+                native_ready_frame=verified_ready["frame"]
                 ready_seen=True
                 break
             if playback.poll() is not None:
@@ -328,6 +336,13 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
         deadline=time.monotonic()+verified["capture_limit_seconds"]+8
         while time.monotonic()<deadline:
             if done.is_file():
+                from .replay_gui import marker, ReplayLaunchError
+                try:
+                    verified_done=marker(done,"done",run,after=(native_ready_frame or 0)+1)
+                except ReplayLaunchError as error:
+                    errors.append(f"invalid_native_completion:{error}")
+                    break
+                native_done_frame=verified_done["frame"]
                 playback_finished=True
                 if recorder.poll() is None:
                     try:
@@ -358,6 +373,8 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
         "schema":1,"run_id":run,"replay_sha256":verified["replay_sha256"],
         "mod_mpq_sha256":verified["mod_mpq_sha256"],
         "playback_ready_marker_seen":ready_seen,
+        "native_ready_frame":native_ready_frame,
+        "native_done_frame":native_done_frame,
         "playback_done_marker_seen":playback_finished,
         "ffmpeg_exit_code":ffmpeg_return,"errors":sorted(set(errors)),
         "full_game_replay_correctness_confirmed":False,
