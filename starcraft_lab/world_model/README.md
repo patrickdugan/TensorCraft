@@ -87,3 +87,18 @@ A positive interaction is the model's claim that speed and cadence support one a
 4. Compare held-out matchup predictions with referee-confirmed outcomes, score calibration error and retain all falsifying cases rather than retrofitting the scenario after the outcome.
 
 Until those measurements exist, any percentages reported by this program are **frequencies inside its imaginary combat model**, useful for prioritizing experiments and learning where the approximations break.
+
+## Fillable research tables and complete named-unit matchup matrix
+
+Create a fresh, empty workspace of provenance-aware CSV and JSON tables:
+
+```bash
+python -m starcraft_lab.world_model.scaffold --output-dir /private/starcraft_fill
+python -m starcraft_lab.world_model.matchups --json /private/named_unit_matrix.json --csv /private/named_unit_matrix.csv
+```
+
+The scaffold has 228 unit rows, 130 weapon rows, a variable registry, the known seed relation graph and 32 blank experiment-arm rows across eight scenarios. Of the 228 unit IDs, a small public subset has explicitly sourced seed values; other fields stay empty until owned-game DAT data or confirmed observations fill them.
+
+The named-unit matrix covers every ordered pair among the seeded units (18 × 18 = 324 capability comparisons). Each cell records whether a direct weapon can hit the target, nominal damage against size/armor, idealized time-to-kill, weighted resource cost and an explicitly uncertain two-sided exchange heuristic. Carrier/interceptor and siege-mode interactions remain excluded. This pairwise table is a **coverage inventory**, not an exhaustive full-game tactical model.
+
+CI attaches these CSV and JSON files to the modeling PR's workflow artifact. They are suitable as editable data/agent targets without copying copyrighted game archives.
