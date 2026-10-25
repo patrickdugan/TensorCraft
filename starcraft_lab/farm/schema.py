@@ -168,6 +168,9 @@ def validate_runtime(runtime: dict, plan: dict, work_root: Path) -> dict:
     if len({x["sha256"] for x in mods.values()}) != len(mods):
         raise FarmError("different mod variants must have different MPQ hashes")
 
+    display_backend=runtime.get("display_backend","external")
+    if display_backend not in ("external","managed_xvfb"):
+        raise FarmError("display_backend must be external or managed_xvfb")
     expected = runtime.get("capacity")
     if not isinstance(expected, dict):
         raise FarmError("missing explicit CPU/RAM capacity")
@@ -251,7 +254,8 @@ def validate_runtime(runtime: dict, plan: dict, work_root: Path) -> dict:
         raise FarmError("output root cannot be inside an installation")
     return {"pairs": len(pairs), "games": sum(len(x) for x in pairs),
             "variants": sorted(variants), "mods": mods, "slots": slots,
-            "capacity": expected, "launcher": launcher}
+            "capacity": expected, "launcher": launcher,
+            "display_backend": display_backend}
 
 
 def substitute_command(template: list[str], values: dict[str, str]) -> list[str]:
