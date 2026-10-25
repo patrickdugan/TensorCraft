@@ -67,6 +67,8 @@ jobs:
           python-version: '3.12'
       - name: Generate synthetic counterfactual A/B research priors
         run: python -m starcraft_lab.world_model.experiments --trials 12 --sensitivity-trials 4 --seed 20261025 --output /tmp/starcraft_model_priors.json
+      - name: Generate complete named-unit A-versus-B capability matrix
+        run: python -m starcraft_lab.world_model.matchups --json /tmp/starcraft_pairwise_matrix.json --csv /tmp/starcraft_pairwise_matrix.csv
       - name: Validate outputs and display labeled sample matrix
         run: |
           python - <<'PY'
@@ -89,5 +91,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: tensorcraft-world-model-guestimates
-          path: /tmp/starcraft_model_priors.json
+          path: |
+            /tmp/starcraft_model_priors.json
+            /tmp/starcraft_pairwise_matrix.json
+            /tmp/starcraft_pairwise_matrix.csv
           retention-days: 14
