@@ -16,7 +16,9 @@ def frames_for(variant="control", num=700, damaged=True):
         "schema":1,"event":"start","run_id":"synthetic_case",
         "variant":variant,"producer":ta.PRODUCER,
         "frame_step":1,"full_information_at_start":False,
-        "replay_mode":False,
+        "replay_mode":False, "self_player_id":0,
+        "start_tile_x":4,"start_tile_y":7,
+        "observed_rng_seed":4711,"map_sha1":"a"*40,
     }]
     for frame in range(num):
         attack = frame in range(10,num,cooldown)
@@ -24,6 +26,7 @@ def frames_for(variant="control", num=700, damaged=True):
         events.append({
             "schema":1,"event":"frame","frame":frame,
             "complete_information":False,"dropped_units":0,
+            "main_ai_event_ms":12, "logical_fps":60,
             "units":[{
                 "id":10,"player":0,"type":62,
                 "x":round(frame*speed),"y":200,
@@ -68,6 +71,12 @@ class TraceTests(unittest.TestCase):
             self.assertEqual(result["observed_frames"],700)
             self.assertEqual(result["missing_frames"],0)
             self.assertEqual(result["first_devourer_frame"],0)
+            self.assertEqual(result["self_player_id"],0)
+            self.assertEqual(result["start_tile"],[4,7])
+            self.assertEqual(result["observed_rng_seed"],4711)
+            self.assertEqual(result["map_sha1"],"a"*40)
+            self.assertEqual(result["main_ai_callback_ms_p50"],12)
+            self.assertEqual(result["logical_fps_median"],60)
             self.assertAlmostEqual(result["devourer_moving_speed_p90_px_per_frame"],5.0,places=4)
             self.assertEqual(result["devourer_attack_interval_median_frames"],100)
             self.assertEqual(result["observed_spore_stack_increments"][43],1)
@@ -145,6 +154,24 @@ class TraceTests(unittest.TestCase):
             self.assertAlmostEqual(report["cooldown_only_minus_baseline"],-10)
             self.assertAlmostEqual(report["combined_interval_minus_baseline"],-10)
             self.assertEqual(report["status"],"observational_trace_summary_not_game_balance_effect")
+    def test_reject_invalid_native_provenance(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/"bad.jsonl"
+            events=frames_for(num=4)
+            events[0]["map_sha1"]="bad!"
+            save(events,p)
+            with self.assertRaisesRegex(ta.TraceError,"invalid map_sha1"):
+                ta.read_trace(p)
+            events=frames_for(num=4)
+            events[0]["observed_rng_seed"]=-1
+            save(events,p)
+            with self.assertRaisesRegex(ta.TraceError,"observed_rng_seed"):
+                ta.read_trace(p)
+            events=frames_for(num=4)
+            events[1]["main_ai_event_ms"]=-1
+            save(events,p)
+            with self.assertRaisesRegex(ta.TraceError,"main_ai_event_ms"):
+                ta.read_trace(p)
     def test_incomplete_unit_set_marks_calibration_ineligible(self):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"r.jsonl"
