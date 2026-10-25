@@ -6,7 +6,8 @@ from starcraft_lab.world_model.trace_analysis import VARIANTS, TraceError
 
 def reports(count=2):
     output=[]
-    for name,(speed,cd) in VARIANTS.items():
+    for name,params in VARIANTS.items():
+        speed,cd = params["speed"],params["cooldown"]
         for i in range(count):
             output.append({
                 "schema":1,"run_id":f"{name}_{i}","variant":name,
@@ -23,10 +24,10 @@ def reports(count=2):
 
 def receipts():
     return {name:{
-        "schema":2,"variant":name,"new_speed_raw":int(speed*256),
-        "new_cooldown_frames":cd,"output_flingy_sha256":f"{i+1:064x}",
+        "schema":2,"variant":name,"new_speed_raw":int(params["speed"]*256),
+        "new_cooldown_frames":params["cooldown"],"output_flingy_sha256":f"{i+1:064x}",
         "output_weapons_sha256":f"{i+5:064x}"
-    } for i,(name,(speed,cd)) in enumerate(VARIANTS.items())}
+    } for i,(name,params) in enumerate(VARIANTS.items())}
 
 
 class CalibrationGateTests(unittest.TestCase):
