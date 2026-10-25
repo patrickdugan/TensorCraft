@@ -37,7 +37,8 @@ def pe_machine(path: Path) -> int | None:
 
 def inspect_install(game_dir: Path, units_file: Path, original_flingy: Path,
                     staged_flingy: Path, receipt_file: Path,
-                    packed_extracted_flingy: Path | None = None) -> dict:
+                    packed_extracted_flingy: Path | None = None,
+                    mpqdraft_bwapi_plugin: Path | None = None) -> dict:
     game_dir = game_dir.resolve()
     checks, failures, warnings = {}, [], []
     installed = {
@@ -115,6 +116,25 @@ def inspect_install(game_dir: Path, units_file: Path, original_flingy: Path,
                 failures.append("mpq_extracted_mod_hash_mismatch")
         except OSError:
             failures.append("mpq_extracted_mod_missing")
+    if mpqdraft_bwapi_plugin is None:
+        warnings.append("bwapi_mpqdraft_plugin_not_checked")
+    else:
+        path = mpqdraft_bwapi_plugin
+        if path.suffix.lower() != ".qdp":
+            failures.append("bwapi_mpqdraft_plugin_must_be_qdp")
+        if not path.is_file():
+            failures.append("bwapi_mpqdraft_plugin_missing")
+            checks["bwapi_mpqdraft_plugin"] = {"present": False}
+        else:
+            machine = pe_machine(path)
+            checks["bwapi_mpqdraft_plugin"] = {
+                "present": True, "sha256": filehash(path),
+                "size_bytes": path.stat().st_size,
+                "pe_machine": f"0x{machine:04x}" if machine is not None else None,
+                "name": path.name,
+            }
+            if machine != 0x14C:
+                failures.append("bwapi_mpqdraft_plugin_not_x86")
     warnings += ["starcraft_executable_version_unconfirmed", "cpu_avx2_unconfirmed",
                  "mpqdraft_bwapi_coexistence_unconfirmed", "pluto_v2_release_identity_unconfirmed",
                  "no_game_execution_performed"]
@@ -131,10 +151,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--staged-flingy", type=Path, required=True)
     ap.add_argument("--receipt", type=Path, required=True)
     ap.add_argument("--mpq-extracted-flingy", type=Path)
+    ap.add_argument("--mpqdraft-bwapi-plugin", type=Path)
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args(argv)
     result = inspect_install(args.game_dir, args.units, args.original_flingy,
-                             args.staged_flingy, args.receipt, args.mpq_extracted_flingy)
+                             args.staged_flingy, args.receipt, args.mpq_extracted_flingy,
+                             args.mpqdraft_bwapi_plugin)
     with args.output.open("x", encoding="utf-8") as out:
         json.dump(result, out, indent=2, sort_keys=True)
         out.write("\n")
