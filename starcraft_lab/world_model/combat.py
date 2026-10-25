@@ -167,7 +167,7 @@ def _attack(actor:Soldier,target:Soldier,soldiers:list[Soldier],
         dmg=weapon["damage"]
     if "bounce_damage" in weapon:
         possible=[v for v in soldiers if v.alive and v.side!=actor.side
-                  and v.id!=target.id and v.kind!=actor.kind
+                  and v.id!=target.id
                   and _distance(target,v)<=weapon.get("bounce_radius_px",96)]
         chosen=[target]
         for _ in range(2):
@@ -188,7 +188,7 @@ def _attack(actor:Soldier,target:Soldier,soldiers:list[Soldier],
         if weapon.get("splash_radius_px"):
             for other in soldiers:
                 if (other.alive and other.side!=actor.side and other.id!=target.id
-                        and other.kind!=actor.kind
+                        
                         and _distance(other,target)<=weapon["splash_radius_px"]):
                     # Surrogate fractional splash effect; authoritative
                     # outer/inner splash radii and friendliness are pending.
