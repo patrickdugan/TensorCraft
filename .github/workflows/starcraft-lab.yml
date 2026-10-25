@@ -111,11 +111,21 @@ jobs:
         with:
           repository: bwapi/bwapi
           ref: v4.4.0
+          fetch-depth: 0
           path: _bwapi44
       - name: Initialize Win32 MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
+      - name: Generate versioned svnrev header using tagged git history
+        shell: pwsh
+        run: |
+          $commits = & git -C "_bwapi44" rev-list HEAD --count
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $rev = 2383 + [int]$commits
+          $header = @("#pragma once", "static const int SVN_REV = $rev;", '#include "starcraftver.h"')
+          $header | Set-Content "_bwapi44/bwapi/include/svnrev.h" -Encoding ascii
+          Write-Host "Built a local-only BWAPI revision header for tagged v4.4.0; revision $rev"
       - name: Build pinned LGPL-3.0 BWAPILIB locally on CI
         shell: pwsh
         run: |
