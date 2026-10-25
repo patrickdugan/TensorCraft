@@ -253,6 +253,9 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
     binary=verified["binary"]
     auth=root/".Xauthority"
     env=os.environ.copy()
+    source_root=str(Path(__file__).resolve().parents[2])
+    env["PYTHONPATH"]=source_root+(
+        os.pathsep+env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     env["DISPLAY"]=verified["display"]
     env["WINEPREFIX"]=verified["wineprefix"]
     env["XAUTHORITY"]=str(auth)
