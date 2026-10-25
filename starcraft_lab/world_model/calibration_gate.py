@@ -85,8 +85,16 @@ def propose(reports: list[dict], receipts: dict | None = None) -> dict:
         # weapon jitter and time lost to target acquisition.
         speed_near_expected = bool(ok_count and abs(speed-expected_speed) <= 0.35)
         cadence_near_expected = bool(ok_count and abs(cadence-expected_cd) <= 6)
+        eligible_friction=[r["ready_target_outside_nominal_range_fraction"] for r in rows
+            if type(r.get("ready_with_visible_target_samples")) is int
+            and r["ready_with_visible_target_samples"] >= 20
+            and _finite_number(r.get("ready_target_outside_nominal_range_fraction"))
+            and 0 <= r["ready_target_outside_nominal_range_fraction"] <= 1]
         arm[variant] = {
             "expected_speed":expected_speed, "expected_cooldown":expected_cd,
+            "range_friction_eligible_runs":len(eligible_friction),
+            "median_cooldown_ready_outside_range_fraction":
+                median(eligible_friction) if eligible_friction else None,
             "independent_traces":len(rows),
             "observed_median_run_p90_speed":speed,
             "observed_median_run_attack_interval":cadence,
@@ -128,8 +136,20 @@ def propose(reports: list[dict], receipts: dict | None = None) -> dict:
         }
     else:
         observed=None
+    def friction_delta(a,b):
+        key="median_cooldown_ready_outside_range_fraction"
+        x,y=arm[a][key],arm[b][key]
+        return round(x-y,5) if x is not None and y is not None else None
+
     return {
-        "schema": 1, "status": ("measurement_consistent_pending_native_identity"
+        "schema": 1,
+        "target_range_friction_deltas": {
+            "speed_only_minus_baseline":friction_delta("devourer_speed_550","control"),
+            "combined_minus_cooldown_only":
+                friction_delta("devourer_speed_550_cooldown_90","devourer_cooldown_90"),
+            "meaning":"observed attack-ready frame share with visible target out of range, not missed shots",
+        },
+        "status": ("measurement_consistent_pending_native_identity"
                                 if all_ready else "insufficient_or_discordant_measurement"),
         "model_parameters_changed": False,
         "arms": arm, "observed_deltas": observed,
