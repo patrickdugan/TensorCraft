@@ -98,3 +98,19 @@ python -m starcraft_lab.world_model.calibration_gate --reports C:\BWLab\reports 
 The gate compares observed high-percentile Devourer velocity with 5.0/5.5 px/frame, and median attack-start intervals with 100/90 frames. It also checks declared receipt speed/cooldown values, expected output hashes, unique run IDs, and sufficient repeated measurements. Any incomplete condition produces an explicit diagnostic rather than an applied model update.
 
 **A positive gate is still pending native identification**: the sidecar's run-id and variant strings are environment claims; its file hashes and receipts must be checked against the actual MPQDraft-loaded payload and replay hashes. This gate deliberately leaves the original surrogate model unchanged. The full performance and non-interference assessment belongs in a live match with and without the tournament sidecar.
+
+## Bind the trace to a planned match
+
+BWAPI exposes `getRandomSeed`, `mapHash`, the current player's starting tile, and the player ID. The latest sidecar writes these **observed game values** into its header, along with the previous frame-level telemetry. Its `map_sha1` is BWAPI's SHA-1 of the loaded map archive on ordinary melee maps, distinct from the experiment manifest's SHA-256.
+
+After analyzing the trace and replay, create a private JSON map from your planned spawn-labels to actual map start tiles, e.g. `{"A":[4,7],"B":[118,7]}` after verifying the real map. Call:
+
+```powershell
+python -m starcraft_lab.world_model.provenance --manifest C:\BWLab\completed\RUN.json --trace-report C:\BWLab\reports\RUN.json --replay-report C:\BWLab\parsed\RUN.json --map-file C:\BWLab\maps\map.scx --spawn-tiles C:\BWLab\spawn_tiles.json --output C:\BWLab\reports\RUN-binding.json
+```
+
+The provenance binder checks `run_id`, intervention, player ID, replay hash, approximate frame extent, observed initial RNG seed against the plan, observed start tile against the supplied mapping, and BWAPI map SHA-1 against the actual source map file. A mismatch invalidates strict pairing, and the output identifies the exact problem.
+
+**Critical:** The existing TensorCraft batch planner labels a desired RNG seed and spawn but has not proved control over them. If observed seeds or starting tiles differ, treat those games as independent randomized observations rather than falsely pairing them on common seed. Pluto's executable identity and MPQ loading still require separate live preflight and speed/cooldown acceptance; an observed map hash cannot attest those binaries.
+
+Record both `main_ai_event_ms` and `logical_fps` when the observer is enabled. Compare with games recorded without the observer; this is a non-interference check, while `main_ai_event_ms` by itself measures the callback duration rather than the whole 64-bit Pluto inference process.
