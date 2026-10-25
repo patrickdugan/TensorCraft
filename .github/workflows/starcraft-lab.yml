@@ -30,4 +30,4 @@ jobs:
           workspaces: starcraft_lab/replay_probe
       - name: Test replay extraction without game assets
         working-directory: starcraft_lab/replay_probe
-        run: cargo test --locked --all-targets
+        run: cargo test --all-targets
