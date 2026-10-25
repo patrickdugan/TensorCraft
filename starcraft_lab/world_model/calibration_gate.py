@@ -10,6 +10,7 @@ import argparse
 import json
 from pathlib import Path
 from statistics import median
+import re
 from .trace_analysis import VARIANTS, TraceError
 
 MIN_INDEPENDENT_RUNS = 2
@@ -33,13 +34,19 @@ def propose(reports: list[dict], receipts: dict | None = None) -> dict:
     by_arm = defaultdict(list)
     exclusions = []
     seen_hashes = set()
+    seen_run_ids = set()
     for report in reports:
         if not isinstance(report, dict) or report.get("variant") not in VARIANTS:
             exclusions.append("unknown_or_bad_arm")
             continue
         variant = report["variant"]
+        run_id = report.get("run_id")
+        if not isinstance(run_id,str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}",run_id) or run_id in seen_run_ids:
+            exclusions.append(f"{variant}:missing_or_duplicate_run_id")
+            continue
+        seen_run_ids.add(run_id)
         fingerprint = report.get("trace_sha256")
-        if not isinstance(fingerprint,str) or len(fingerprint)!=64 or fingerprint in seen_hashes:
+        if not isinstance(fingerprint,str) or not re.fullmatch(r"[0-9a-f]{64}",fingerprint) or fingerprint in seen_hashes:
             exclusions.append(f"{variant}:missing_or_duplicate_trace_hash")
             continue
         seen_hashes.add(fingerprint)
@@ -100,7 +107,7 @@ def propose(reports: list[dict], receipts: dict | None = None) -> dict:
             if r.get("schema") != 2 or speed != round(expected_speed*256) or cadence != expected_cd:
                 raise TraceError(f"{name}: receipt disagrees with intended static intervention")
             hashes = (r.get("output_flingy_sha256"), r.get("output_weapons_sha256"))
-            if any(not isinstance(h,str) or len(h)!=64 for h in hashes):
+            if any(not isinstance(h,str) or not re.fullmatch(r"[0-9a-f]{64}",h) for h in hashes):
                 raise TraceError(f"{name}: missing staged-file checksums")
             source_receipts[name] = {"flingy_sha256": hashes[0], "weapons_sha256": hashes[1]}
     else:
@@ -142,11 +149,16 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reports",type=Path,required=True)
     parser.add_argument("--receipts",type=Path,help="JSON map of 4 generated mod receipts")
+    parser.add_argument("--receipt-root",type=Path,help="folder with ARM_NAME/receipt.json for each arm")
     parser.add_argument("--output",type=Path,required=True)
     args=parser.parse_args()
     rows=[json.loads(p.read_text(encoding="utf-8"))
           for p in sorted(args.reports.glob("*.json"))]
-    receipts=json.loads(args.receipts.read_text(encoding="utf-8")) if args.receipts else None
+    if args.receipts and args.receipt_root:
+        parser.error("select either --receipts or --receipt-root")
+    receipts=(json.loads(args.receipts.read_text(encoding="utf-8")) if args.receipts else
+              {name:json.loads((args.receipt_root/name/"receipt.json").read_text(encoding="utf-8"))
+               for name in VARIANTS} if args.receipt_root else None)
     result=propose(rows,receipts)
     with args.output.open("x",encoding="utf-8") as file:
         json.dump(result,file,indent=2,sort_keys=True)
