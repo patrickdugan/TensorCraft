@@ -140,3 +140,72 @@ Every replay's full source file, map SHA-256, mod MPQ SHA-256, native executable
 - [BWAPI](https://bwapi.github.io/): exact 1.16.1 / 4.4 runtime prerequisites.
 - [Observer replay project](https://github.com/ElsevierSoftwareX/SOFTX-D-25-00542): GUI replay recorder, with manual replay selection limitations.
 - [FFmpeg x11grab](https://ffmpeg.org/ffmpeg-devices.html#x11grab): supported capture of an X11 display.
+
+
+## Native launch adapters added in this branch
+
+The new **native_match.py** replaces the earlier placeholder for an
+unattended, *virtual-screen* match against the **built-in AI**. It temporarily
+configures the copied game for BWAPI SINGLE_PLAYER, with Pluto remaining the
+normal AI, stages an exact private map, launches the original StarCraft 1.16.1
+executable through the modernized MPQDraft CLI with its MPQ and BWAPI injector,
+observes BWAPI-native match start/end callbacks, and waits for a stable saved
+replay. The wrapper restores bwapi.ini and removes only its staged map/replay.
+The outer farm rechecks native markers, asset hashes and Rust replay parsing.
+
+**This fallback is not true bwheadless.** It uses a virtual Xvfb display and
+renders game graphics within Wine while remaining invisible to the desktop.
+It consumes more CPU than a rendering-free engine and currently supports
+Pluto versus one built-in Zerg/Terran/Protoss opponent. True multiplayer
+bwheadless support remains blocked on proving custom MPQ injection and
+Pluto's separate 64-bit inference process. Upstream bwheadless supports
+host/join and -l DLL loading but does not advertise --mpq as a standard flag.
+
+Copy [runtime.virtual-screen.example.json](runtime.virtual-screen.example.json)
+to a private runtime.json, replacing every absolute path, mod/archive hash,
+game installation and inference-model path. Start each worker's private Xvfb
+display with Xauthority and -nolisten tcp, then prepare and run the existing
+farm commands. Results are not referee-confirmed or mod-physics-validated
+until the separate actual-game acceptance steps pass.
+
+### Modernized MPQDraft CLI and automatic replay playback
+
+The script [replay_gui.py](replay_gui.py) implements fully scripted graphical
+replay loading via the modernized
+[sjoblomj/MPQDraft](https://github.com/sjoblomj/MPQDraft) fork. Its command is:
+
+    MPQDraft.exe patch --target StarCraft.exe --mpq control.mpq --plugin BWAPI_PluginInjector.qdp
+
+This is NOT the older MPQDraft fork's -launch syntax. BWAPI 4.4.0 supports
+SINGLE_PLAYER auto-menu loading with a specified maps/replays/FILE.rep.
+The adapter stages the replay inside an isolated graphical StarCraft copy,
+sets that private BWAPI auto-menu config, and restores it afterward.
+The locally linked TensorCraftTrace.dll now exports a no-op replay AI plus
+a tournament observer, so Pluto inference is not needed while watching a
+replay. The observer writes native BWAPI replay start/end JSON markers.
+The video renderer refuses arbitrary empty marker files and starts FFmpeg
+before playback to capture the opening, keeping menu lead-in for later trim.
+
+The [render_pool.example.json](render_pool.example.json) and
+[video.example.json](video.example.json) configurations now use this
+concrete replay adapter. Rendering still needs Xvfb, a private Wine prefix,
+the modernized MPQDraft CLI, BWAPI's .qdp injector, a locally linked x86
+TensorCraftTrace.dll and valid 1.16.1 game/replay data. The actual graphics
+and their compatibility with the intended DAT overrides are unverified
+until a local native playback test succeeds.
+
+### Windows CI linking and license note
+
+BWAPI is licensed under LGPL-3.0. The optional Windows CI build attempts
+a full static BWAPILIB build from pinned v4.4.0 source and links the x86
+observer. No LGPL-containing linked DLL is distributed by this public CI
+until its LGPL combined-work/relinking requirements are reviewed. The
+original game files and Pluto weights remain private.
+
+### Native acceptance remaining
+
+Verify a real modded Pluto match and stable replay, prove that the MPQ is
+effective by independent in-game movement/cooldown traces, play the exact
+replay under GUI Wine auto-menu without manual clicking, visually inspect
+the resulting YouTube-format MP4, and then benchmark at least two isolated
+game slots concurrently with CPU/RAM and Pluto inference timing measured.
