@@ -171,7 +171,7 @@ def analyze(directory: Path) -> dict:
             continue
         left, right = rows
         a, b = left["manifest"], right["manifest"]
-        if any(a[k] != b[k] for k in common):
+        if any(a.get(k) != b.get(k) for k in common):
             mismatched.append({"pair_id": pair_id, "reason": "different_conditions"})
         elif a["mod_sha256"] == b["mod_sha256"]:
             mismatched.append({"pair_id": pair_id, "reason": "same_mod_hash"})
