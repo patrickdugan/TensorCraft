@@ -98,21 +98,21 @@ class TelemetryTests(unittest.TestCase):
             for name, var, outcome in [('r1','control','loss'),('r2','devourer_speed_550','win')]:
                 m = manifest(run_id=name, variant=var, result=outcome,
                              mod_sha256=('d'*64 if var=='control' else 'f'*64))
-                r = {'schema':1,'manifest':m,'telemetry_errors':[],'result_evidence_verified':True,'pluto_json_events':[]}
+                r = {'schema':1,'manifest':m,'telemetry_errors':[],'evidence_hash_matches':True,'pluto_json_events':[]}
                 (root/f'{name}.json').write_text(json.dumps(r))
             report = telemetry.analyze(root)
-            self.assertEqual(report['variants']['devourer_speed_550']['win_rate_decisive'], 1.0)
-            self.assertEqual(len(report['verified_pairs']), 1)
-            (root/'r2.json').write_text(json.dumps({'schema':1,'manifest':manifest(run_id='r2', variant='devourer_speed_550', seed=8, mod_sha256='f'*64),'telemetry_errors':[],'result_evidence_verified':True,'pluto_json_events':[]}))
+            self.assertEqual(report['variants']['devourer_speed_550']['reported_win_rate_decisive'], 1.0)
+            self.assertEqual(len(report['artifact_backed_pairs']), 1)
+            (root/'r2.json').write_text(json.dumps({'schema':1,'manifest':manifest(run_id='r2', variant='devourer_speed_550', seed=8, mod_sha256='f'*64),'telemetry_errors':[],'evidence_hash_matches':True,'pluto_json_events':[]}))
             report2=telemetry.analyze(root)
             self.assertEqual(report2['excluded_pairs'][0]['reason'], 'different_conditions')
     def test_unverified_outcome_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             m = manifest(result_evidence='manual', result_evidence_sha256=None)
-            (root/'r1.json').write_text(json.dumps({'schema':1,'manifest':m,'telemetry_errors':[],'result_evidence_verified':True,'pluto_json_events':[]}))
+            (root/'r1.json').write_text(json.dumps({'schema':1,'manifest':m,'telemetry_errors':[],'evidence_hash_matches':True,'pluto_json_events':[]}))
             report=telemetry.analyze(root)
-            self.assertIsNone(report['variants']['control']['win_rate_decisive'])
+            self.assertIsNone(report['variants']['control']['reported_win_rate_decisive'])
             self.assertEqual(report['variants']['control']['excluded'], 1)
     def test_missing_evidence_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -120,20 +120,20 @@ class TelemetryTests(unittest.TestCase):
             (root/'manifest.json').write_text(json.dumps(manifest()))
             r=telemetry.collect(root/'manifest.json', None, root/'r1.json')
             self.assertIn('result_evidence_file_missing', r['telemetry_errors'])
-            self.assertFalse(telemetry.verified(r))
+            self.assertFalse(telemetry.artifact_backed(r))
     def test_same_mod_hash_blocks_pair(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
             for name,var in [('r1','control'),('r2','devourer_speed_550')]:
                 m=manifest(run_id=name,variant=var)
-                r={'schema':1,'manifest':m,'telemetry_errors':[],'result_evidence_verified':True}
+                r={'schema':1,'manifest':m,'telemetry_errors':[],'evidence_hash_matches':True}
                 (root/f'{name}.json').write_text(json.dumps(r))
             summary=telemetry.analyze(root)
             self.assertEqual(summary['excluded_pairs'][0]['reason'],'same_mod_hash')
     def test_duplicate_run_id_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
-            r={'schema':1,'manifest':manifest(),'telemetry_errors':[],'result_evidence_verified':True}
+            r={'schema':1,'manifest':manifest(),'telemetry_errors':[],'evidence_hash_matches':True}
             (root/'a.json').write_text(json.dumps(r))
             (root/'b.json').write_text(json.dumps(r))
             with self.assertRaisesRegex(ValueError, 'duplicate'):
