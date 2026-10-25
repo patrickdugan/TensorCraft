@@ -27,10 +27,10 @@ def report_observations(report: dict, manifest: dict) -> tuple[dict | None, list
     if not isinstance(players, list) or len(players) != 2:
         return None, errors + ["replay_not_two_players"]
     ids = [p.get("player_id") for p in players if isinstance(p, dict)]
-    if len(ids) != 2 or any(type(pid) is not int or not 0 <= pid <= 11 for pid in ids) or len(set(ids)) != 2:
+    if len(ids) != 2 or any(type(pid) is not int or not (0 <= pid <= 11 or pid == 255) for pid in ids) or len(set(ids)) != 2:
         return None, errors + ["replay_player_ids_invalid"]
     player_id = manifest.get("agent_player_id")
-    if type(player_id) is not int or player_id not in ids:
+    if type(player_id) is not int or not 0 <= player_id <= 11 or player_id not in ids:
         return None, errors + ["agent_player_id_missing_or_invalid"]
     player = next(p for p in players if p["player_id"] == player_id)
     opponent = next(p for p in players if p["player_id"] != player_id)
