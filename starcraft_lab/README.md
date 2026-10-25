@@ -39,16 +39,17 @@ The staged output includes `flingy.dat.receipt.json` with before/after hashes, n
 
 ## Evidence capture
 
-Make a per-game manifest from `manifest.example.json`, using **actual SHA-256 values** for the engine binary, Pluto binary, map, modded data, and the **initial** per-opponent Pluto bandit stats. Never reuse the example hashes. Record the result from an identified replay or tournament referee, distinguishing `win`, `loss`, `draw`, `crash`, and `unknown`. Preserve opponent name, races, spawn side, seed and map hash. Reset Pluto's adaptive per-opponent bandit to the same starting file before each paired A/B game, using separate installations/profiles to avoid accidental mixing. Pluto's win-probability estimates are agent beliefs, not observed match results.
+Make a per-game manifest from `manifest.example.json`, using **actual SHA-256 values** for the engine binary, Pluto binary, map, modded data, and the **initial** per-opponent Pluto bandit stats. Never reuse the example hashes. Record the result from an identified replay or tournament referee, put its SHA-256 in `result_evidence_sha256`, and supply the original evidence file when recording. Distinguish `win`, `loss`, `draw`, `crash`, and `unknown`. Preserve opponent name, races, spawn side, seed and map hash. Reset Pluto's adaptive per-opponent bandit to the same starting file before each paired A/B game, using separate installations/profiles to avoid accidental mixing. Pluto's win-probability estimates are agent beliefs, not observed match results.
 
 ```bash
 python -m starcraft_lab.telemetry record --manifest /private-exp/manifest.json \
   --pluto-log /private-game/bwapi-data/write/pluto_bandit_OPPONENT.txt \
+  --result-evidence-file /private-exp/replays/zvz-control-001.rep \
   --output /private-exp/records/zvz-control-001.json
 python -m starcraft_lab.telemetry analyze --records /private-exp/records
 ```
 
-The collector archives Pluto's JSON event objects and hashes the source file without assuming event property names. Malformed JSON or absent Pluto logs remain flagged; games without verified outcome evidence are excluded from the verified win-rate denominator. Paired analysis only compares the same map, side, seed, opponent, agent, version and initial bandit configuration. Zero matches produces a `null` win rate, never a fabricated zero.
+The collector archives Pluto's JSON event objects and hashes the source file without assuming event property names. Malformed JSON, absent Pluto logs or missing/mismatched outcome evidence remain flagged; games without an evidence-file SHA-256 match are excluded from the verified win-rate denominator. Paired analysis requires different mod hashes and compares the same map, side, seed, opponent, agent, version and initial bandit configuration. Zero matches produces a `null` win rate, never a fabricated zero.
 
 ## First experiment protocol and acceptance gates
 
