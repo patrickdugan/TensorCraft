@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import signal
 import shutil
 import struct
 import subprocess
@@ -119,7 +120,7 @@ def render_spec(spec:dict, out_dir:Path)->dict:
 def ffmpeg_argv(executable:str, display:str, video_path:Path, seconds:int) -> list[str]:
     """H.264 + silent stereo AAC, 1920x1080, 30p, MP4 faststart."""
     return [
-        executable,"-nostdin","-hide_banner","-loglevel","warning","-y",
+        executable,"-hide_banner","-loglevel","warning","-y",
         "-f","x11grab","-framerate",str(FPS),
         "-video_size",f"{INPUT_W}x{INPUT_H}","-draw_mouse","0",
         "-i",f"{display}.0",
@@ -214,11 +215,19 @@ def validate_mp4(path:Path, ffprobe_exe:str, *, min_duration:float=3.0)->dict:
 def _stop_process(proc:subprocess.Popen|None):
     if proc is None or proc.poll() is not None:
         return
-    proc.terminate()
+    if os.name=="posix":
+        try:os.killpg(proc.pid,signal.SIGTERM)
+        except ProcessLookupError:pass
+    else:
+        proc.terminate()
     try:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        if os.name=="posix":
+            try:os.killpg(proc.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+        else:
+            proc.kill()
         proc.wait(timeout=5)
 
 
@@ -260,7 +269,7 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
                 binary["xvfb_exe"],verified["display"],"-screen","0",
                 f"{INPUT_W}x{INPUT_H}x24","-nolisten","tcp",
                 "-auth",str(auth),
-            ],env=env,stdout=xvfb_log,stderr=subprocess.STDOUT)
+            ],env=env,stdout=xvfb_log,stderr=subprocess.STDOUT,start_new_session=True)
         stack.callback(_stop_process,xvfb)
         usable=False
         for _ in range(30):
@@ -288,7 +297,7 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
         # same private mod MPQ; there is no fake "headless replay renderer".
         with (root/"playback.log").open("xb") as log:
             playback=subprocess.Popen(argv,env=env,cwd=verified["game_dir"],
-                                      stdout=log,stderr=subprocess.STDOUT)
+                                      stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
         stack.callback(_stop_process,playback)
         deadline=time.monotonic()+verified["ready_timeout_seconds"]
         while time.monotonic()<deadline:
@@ -305,7 +314,7 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
                           verified["capture_limit_seconds"])
         with (root/"ffmpeg.log").open("xb") as log:
             recorder=subprocess.Popen(ffargv,env=env,
-                stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT)
+                stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
         stack.callback(_stop_process,recorder)
         deadline=time.monotonic()+verified["capture_limit_seconds"]+8
         while time.monotonic()<deadline:
