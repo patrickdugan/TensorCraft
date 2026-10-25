@@ -83,3 +83,18 @@ The analysis purposely does not directly overwrite the world model's physical co
 ## Experimental handoff
 
 The live-telemetry branch is stacked on [World Model PR #3](https://github.com/patrickdugan/TensorCraft/pull/3) and ultimately on [Devourer Mod PR #1](https://github.com/patrickdugan/TensorCraft/pull/1). The existing batch experiment, legacy replay parser, and proprietary game-file boundaries remain unchanged.
+
+
+## Four-arm parameter consistency gate
+
+Collect **at least two independent, contiguous** native traces per variant, with at least 450 observed frames, 60 moving Devourer velocity samples, and five detected attack intervals in each trace. Use the same controlled map and a durable air target so attack cadence is measurable.
+
+After converting the JSONL traces to report JSONs, place the corresponding *privately generated* `mod_factorial.py` receipts in directories `control/receipt.json`, `devourer_speed_550/receipt.json`, `devourer_cooldown_90/receipt.json`, and `devourer_speed_550_cooldown_90/receipt.json`. Run:
+
+```powershell
+python -m starcraft_lab.world_model.calibration_gate --reports C:\BWLab\reports --receipt-root C:\BWLab\mods --output C:\BWLab\reports\calibration-proposal.json
+```
+
+The gate compares observed high-percentile Devourer velocity with 5.0/5.5 px/frame, and median attack-start intervals with 100/90 frames. It also checks declared receipt speed/cooldown values, expected output hashes, unique run IDs, and sufficient repeated measurements. Any incomplete condition produces an explicit diagnostic rather than an applied model update.
+
+**A positive gate is still pending native identification**: the sidecar's run-id and variant strings are environment claims; its file hashes and receipts must be checked against the actual MPQDraft-loaded payload and replay hashes. This gate deliberately leaves the original surrogate model unchanged. The full performance and non-interference assessment belongs in a live match with and without the tournament sidecar.
