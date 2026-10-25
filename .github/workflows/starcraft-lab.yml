@@ -99,3 +99,21 @@ jobs:
             /tmp/starcraft_pairwise_matrix.csv
             /tmp/tensorcraft_model_fill/
           retention-days: 14
+
+  bwapi-x86-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned BWAPI 4.4.0 headers (no game data)
+        uses: actions/checkout@v4
+        with:
+          repository: bwapi/bwapi
+          ref: v4.4.0
+          path: _bwapi44
+      - name: Initialize Win32 MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - name: Compile passive trace observer to x86 object (no engine linkage)
+        shell: cmd
+        run: cl /nologo /EHsc /std:c++14 /W4 /c /I "_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" /Fo:"%TEMP%\TensorCraftTrace.obj"

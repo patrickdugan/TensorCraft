@@ -1,0 +1,190 @@
+"""Propose, never silently apply, evidence-based Devourer combat parameters.
+
+Inputs are JSON reports from trace_analysis and optional game-side receipts.
+This is a measurement gate, not engine verification or a probabilistic model.
+In particular, a generated mod receipt does NOT prove an MPQ was loaded.
+"""
+from __future__ import annotations
+from collections import defaultdict
+import argparse
+import json
+from pathlib import Path
+from statistics import median
+import re
+from .trace_analysis import VARIANTS, TraceError
+
+MIN_INDEPENDENT_RUNS = 2
+MIN_SPEED_SAMPLES = 60
+MIN_ATTACK_INTERVALS = 5
+MIN_FRAMES = 450
+
+
+def _finite_number(x) -> bool:
+    import math
+    return type(x) in (int,float) and math.isfinite(x)
+
+
+def propose(reports: list[dict], receipts: dict | None = None) -> dict:
+    """Gate independently measured speed/cadence before calibration.
+
+    A failed gate asks for a better native test and leaves the original model
+    assumptions unchanged. Soundness of recorded client identity, actual MPQ
+    loading, and replay outcome needs independent local verification.
+    """
+    by_arm = defaultdict(list)
+    exclusions = []
+    seen_hashes = set()
+    seen_run_ids = set()
+    for report in reports:
+        if not isinstance(report, dict) or report.get("variant") not in VARIANTS:
+            exclusions.append("unknown_or_bad_arm")
+            continue
+        variant = report["variant"]
+        run_id = report.get("run_id")
+        if not isinstance(run_id,str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}",run_id) or run_id in seen_run_ids:
+            exclusions.append(f"{variant}:missing_or_duplicate_run_id")
+            continue
+        seen_run_ids.add(run_id)
+        fingerprint = report.get("trace_sha256")
+        if not isinstance(fingerprint,str) or not re.fullmatch(r"[0-9a-f]{64}",fingerprint) or fingerprint in seen_hashes:
+            exclusions.append(f"{variant}:missing_or_duplicate_trace_hash")
+            continue
+        seen_hashes.add(fingerprint)
+        if report.get("strict_calibration_eligible") is not True:
+            exclusions.append(f"{variant}:ineligible_trace")
+            continue
+        if type(report.get("observed_frames")) is not int or report["observed_frames"] < MIN_FRAMES:
+            exclusions.append(f"{variant}:insufficient_frames")
+            continue
+        if (type(report.get("devourer_moving_velocity_samples")) is not int or
+                report["devourer_moving_velocity_samples"] < MIN_SPEED_SAMPLES):
+            exclusions.append(f"{variant}:insufficient_movement")
+            continue
+        if (type(report.get("devourer_attack_interval_count")) is not int or
+                report["devourer_attack_interval_count"] < MIN_ATTACK_INTERVALS):
+            exclusions.append(f"{variant}:insufficient_attacks")
+            continue
+        speed = report.get("devourer_moving_speed_p90_px_per_frame")
+        cadence = report.get("devourer_attack_interval_median_frames")
+        if not _finite_number(speed) or not _finite_number(cadence):
+            exclusions.append(f"{variant}:nonnumeric_measurements")
+            continue
+        if not (0.1 < speed < 15 and 5 < cadence < 2000):
+            exclusions.append(f"{variant}:out_of_range_measurements")
+            continue
+        by_arm[variant].append(report)
+
+    arm = {}
+    for variant, expected in VARIANTS.items():
+        expected_speed, expected_cd = expected["speed"], expected["cooldown"]
+        rows = by_arm[variant]
+        speed = median(r["devourer_moving_speed_p90_px_per_frame"] for r in rows) if rows else None
+        cadence = median(r["devourer_attack_interval_median_frames"] for r in rows) if rows else None
+        ok_count = len(rows) >= MIN_INDEPENDENT_RUNS
+        # This is a deliberately loose diagnostic: observations may contain
+        # weapon jitter and time lost to target acquisition.
+        speed_near_expected = bool(ok_count and abs(speed-expected_speed) <= 0.35)
+        cadence_near_expected = bool(ok_count and abs(cadence-expected_cd) <= 6)
+        eligible_friction=[r["ready_target_outside_nominal_range_fraction"] for r in rows
+            if type(r.get("ready_with_visible_target_samples")) is int
+            and r["ready_with_visible_target_samples"] >= 20
+            and _finite_number(r.get("ready_target_outside_nominal_range_fraction"))
+            and 0 <= r["ready_target_outside_nominal_range_fraction"] <= 1]
+        arm[variant] = {
+            "expected_speed":expected_speed, "expected_cooldown":expected_cd,
+            "range_friction_eligible_runs":len(eligible_friction),
+            "median_cooldown_ready_outside_range_fraction":
+                median(eligible_friction) if eligible_friction else None,
+            "independent_traces":len(rows),
+            "observed_median_run_p90_speed":speed,
+            "observed_median_run_attack_interval":cadence,
+            "speed_diagnostic_pass":speed_near_expected,
+            "cadence_diagnostic_pass":cadence_near_expected,
+            "diagnostic_ready":speed_near_expected and cadence_near_expected,
+            "trace_hashes":[r["trace_sha256"] for r in rows],
+        }
+
+    source_receipts = {}
+    if receipts is not None:
+        if set(receipts) != set(VARIANTS):
+            raise TraceError("expected one receipt per intervention arm")
+        for name, r in receipts.items():
+            speed = r.get("new_speed_raw")
+            cadence = r.get("new_cooldown_frames")
+            expected_speed, expected_cd = VARIANTS[name]["speed"], VARIANTS[name]["cooldown"]
+            if r.get("schema") != 2 or speed != round(expected_speed*256) or cadence != expected_cd:
+                raise TraceError(f"{name}: receipt disagrees with intended static intervention")
+            hashes = (r.get("output_flingy_sha256"), r.get("output_weapons_sha256"))
+            if any(not isinstance(h,str) or not re.fullmatch(r"[0-9a-f]{64}",h) for h in hashes):
+                raise TraceError(f"{name}: missing staged-file checksums")
+            source_receipts[name] = {"flingy_sha256": hashes[0], "weapons_sha256": hashes[1]}
+    else:
+        exclusions.append("mod_receipts_not_supplied")
+
+    all_ready = bool(source_receipts and all(v["diagnostic_ready"] for v in arm.values()))
+    if all_ready:
+        c,s,d,b=(arm[k] for k in VARIANTS)
+        speed_change = s["observed_median_run_p90_speed"]-c["observed_median_run_p90_speed"]
+        cooldown_change = d["observed_median_run_attack_interval"]-c["observed_median_run_attack_interval"]
+        combined_speed = b["observed_median_run_p90_speed"]-c["observed_median_run_p90_speed"]
+        combined_cadence = b["observed_median_run_attack_interval"]-c["observed_median_run_attack_interval"]
+        observed = {
+            "speed_only_delta":round(speed_change,4),
+            "cooldown_only_delta":round(cooldown_change,4),
+            "combined_speed_delta":round(combined_speed,4),
+            "combined_cadence_delta":round(combined_cadence,4),
+        }
+    else:
+        observed=None
+    def friction_delta(a,b):
+        key="median_cooldown_ready_outside_range_fraction"
+        x,y=arm[a][key],arm[b][key]
+        return round(x-y,5) if x is not None and y is not None else None
+
+    return {
+        "schema": 1,
+        "target_range_friction_deltas": {
+            "speed_only_minus_baseline":friction_delta("devourer_speed_550","control"),
+            "combined_minus_cooldown_only":
+                friction_delta("devourer_speed_550_cooldown_90","devourer_cooldown_90"),
+            "meaning":"observed attack-ready frame share with visible target out of range, not missed shots",
+        },
+        "status": ("measurement_consistent_pending_native_identity"
+                                if all_ready else "insufficient_or_discordant_measurement"),
+        "model_parameters_changed": False,
+        "arms": arm, "observed_deltas": observed,
+        "receipts": source_receipts, "exclusions":exclusions,
+        "further_evidence_needed": [
+            "match engine and Pluto executable hashes against preflight",
+            "prove that MPQDraft actually loaded each intended DAT",
+            "pair game-replay hashes with tournament trace run IDs",
+            "confirm sidecar did not disrupt Pluto's 6-frame inference cadence",
+            "measure spore status and actual hits with controlled targets",
+        ],
+        "meaning": "diagnostic measurement proposal only, never a measured win rate",
+    }
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reports",type=Path,required=True)
+    parser.add_argument("--receipts",type=Path,help="JSON map of 4 generated mod receipts")
+    parser.add_argument("--receipt-root",type=Path,help="folder with ARM_NAME/receipt.json for each arm")
+    parser.add_argument("--output",type=Path,required=True)
+    args=parser.parse_args()
+    rows=[json.loads(p.read_text(encoding="utf-8"))
+          for p in sorted(args.reports.glob("*.json"))]
+    if args.receipts and args.receipt_root:
+        parser.error("select either --receipts or --receipt-root")
+    receipts=(json.loads(args.receipts.read_text(encoding="utf-8")) if args.receipts else
+              {name:json.loads((args.receipt_root/name/"receipt.json").read_text(encoding="utf-8"))
+               for name in VARIANTS} if args.receipt_root else None)
+    result=propose(rows,receipts)
+    with args.output.open("x",encoding="utf-8") as file:
+        json.dump(result,file,indent=2,sort_keys=True)
+        file.write("\n")
+    print(json.dumps({"status":result["status"],"exclusions":result["exclusions"]},indent=2))
+
+
+if __name__=="__main__":
+    main()
