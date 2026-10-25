@@ -165,6 +165,44 @@ def _launch(argv:list[str],slot:dict,env:dict,stdout,stderr,timeout:int):
         return proc.returncode,True
 
 
+def _native_match_callback_attested(job_dir: Path, replay: Path, mod_sha: str,
+                                    map_sha: str, run_id: str) -> bool:
+    """Check observed native match callbacks and recorded source hashes.
+
+    A callback means BWAPI ran and ended an apparent match, not that a
+    referee verified who won or that the MPQ's stat effects were loaded.
+    """
+    native = job_dir/"native_match_receipt.json"
+    if not native.is_file():
+        return False
+    record=json_at(native)
+    required={
+        "schema":1,
+        "run_id":run_id,
+        "status":"native_bwapi_game_finished_with_saved_replay",
+        "source_map_sha256":map_sha,
+        "mod_mpq_sha256":mod_sha,
+        "output_replay_sha256":hash_file(replay),
+        "true_bwheadless":False,
+        "actual_mod_stats_verified_in_game":False,
+        "game_outcome_referee_verified":False,
+    }
+    if any(record.get(k)!=v for k,v in required.items()):
+        raise FarmError("native callback receipt does not match observed artifacts")
+    from .replay_gui import marker, ReplayLaunchError
+    try:
+        a=marker(job_dir/"bwapi_match.ready","ready",run_id,replay_mode=False)
+        b=marker(job_dir/"bwapi_match.done","done",run_id,
+                 after=(a["frame"]+1 if a else 1),replay_mode=False)
+    except ReplayLaunchError as exc:
+        raise FarmError("native BWAPI game start/end marker malformed") from exc
+    if a is None or b is None:
+        raise FarmError("missing native start/end callback markers")
+    if record.get("start_frame")!=a["frame"] or record.get("end_frame")!=b["frame"]:
+        raise FarmError("native callback receipt frame numbers differ from markers")
+    return True
+
+
 def _single_game(game:dict, slot:dict, settings:dict,
                  work_root:Path, baseline:bytes) -> dict:
     m=game["manifest"]
@@ -181,6 +219,7 @@ def _single_game(game:dict, slot:dict, settings:dict,
     probe=None
     reset=[]
     launch_sha=None
+    native_callbacks_attested=False
     mod=settings["mods"][variant]
     replay=job_dir/(run_id+".rep")
     capture=job_dir/"stdout.log"
@@ -251,6 +290,12 @@ def _single_game(game:dict, slot:dict, settings:dict,
                         replay,job_dir,settings.get("replay_probe_exe"))
                     if replay.is_file():
                         replay_sha=hash_file(replay)
+                        try:
+                            native_callbacks_attested=_native_match_callback_attested(
+                                job_dir,replay,mod["sha256"],m["map_sha256"],run_id)
+                        except FarmError as exc:
+                            state="artifact_mismatch"
+                            message=str(exc)
     except (FarmError, OSError, ValueError) as ex:
         state="artifact_mismatch"
         message=str(ex)
@@ -267,6 +312,8 @@ def _single_game(game:dict, slot:dict, settings:dict,
         "replay_sha256":replay_sha,
         "replay_parser_status":("confirmed_legacy_parser" if state=="parsed_replay" else "not_confirmed"),
         "native_game_execution_authenticated":False,
+        "native_game_start_end_callbacks_verified":native_callbacks_attested,
+        "true_bwheadless":False,
         "video_captured":False,
         "game_outcome_verified":False,
         "launcher_argv_sha256":launch_sha,
