@@ -160,6 +160,13 @@ class FarmSchemaTests(unittest.TestCase):
             rt["slots"][0]["game_dir"]=plan["games"][0]["game_dir"]
             with self.assertRaisesRegex(schema.FarmError,"worker install"):
                 schema.validate_runtime(rt,plan,root/"out")
+    def test_bandit_targets_cannot_overwrite_game_binaries(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            _,_,plan,rt=fixture(root)
+            rt["slots"][0]["bandit_paths"]=[str(root/"slot0"/"StarCraft.exe")]
+            with self.assertRaisesRegex(schema.FarmError,"Pluto stats"):
+                schema.validate_runtime(rt,plan,root/"out")
     def test_pair_mismatch_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             _,_,plan,rt=fixture(Path(td))
@@ -206,6 +213,19 @@ class FarmRunTests(unittest.TestCase):
             self.assertEqual(res["counts"],{"launcher_failed":2})
             self.assertEqual(res["game_outcomes_verified"],0)
             self.assertEqual(res["video_jobs_emitted"],0)
+    @unittest.skipIf(os.name=="nt","POSIX process-group termination smoke")
+    def test_timeout_terminates_owned_subprocess_tree(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            slot={"game_dir":str(root)}
+            cmd=[sys.executable,"-c","import time; time.sleep(30)"]
+            with (root/"stdout.log").open("wb") as output, (root/"stderr.log").open("wb") as errors:
+                import time
+                start=time.monotonic()
+                rc,timed_out=runner._launch(cmd,slot,os.environ.copy(),output,errors,1)
+                self.assertTrue(timed_out)
+                self.assertNotEqual(rc,0)
+                self.assertLess(time.monotonic()-start,8)
     def test_lock_prevents_duplicate_controllers(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
