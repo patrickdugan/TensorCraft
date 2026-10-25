@@ -11,7 +11,11 @@
   "capture_limit_seconds": 1800,
   "ready_timeout_seconds": 120,
   "replay_launcher": [
-    "/private/BWLab/bin/replay_gui_wrapper",
+    "python3",
+    "-m",
+    "starcraft_lab.farm.replay_gui",
+    "--run-id",
+    "{run_id}",
     "--replay",
     "{replay}",
     "--mod",
@@ -23,6 +27,13 @@
     "--display",
     "{display}",
     "--game-dir",
-    "{game_dir}"
-  ]
+    "{game_dir}",
+    "--mpqdraft",
+    "/private/BWLab/tools/MPQDraft-modernized.exe",
+    "--qdp",
+    "/private/BWLab/tools/BWAPI_PluginInjector.qdp",
+    "--observer",
+    "/private/BWLab/tools/TensorCraftTrace.dll"
+  ],
+  "notes": "Uses modernized sjoblomj/MPQDraft CLI, BWAPI 4.4 auto_menu replay, and privately linked x86 TensorCraftTrace.dll. Native playback and MPQ effects require a smoke test. PYTHONPATH must include the TensorCraft repo in the GUI wrapper subprocess."
 }
