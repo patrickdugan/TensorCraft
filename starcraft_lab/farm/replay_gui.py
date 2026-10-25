@@ -70,7 +70,7 @@ def configure_ini(source: str, replay_relative: str, replay_ai_win: str) -> str:
     return out.getvalue()
 
 
-def marker(path: Path, kind: str, run_id: str, after: int = -1):
+def marker(path: Path, kind: str, run_id: str, after: int = -1, *, replay_mode: bool = True):
     if not path.is_file():
         return None
     if path.stat().st_size > 1024:
@@ -79,10 +79,11 @@ def marker(path: Path, kind: str, run_id: str, after: int = -1):
         obj = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError) as e:
         raise ReplayLaunchError(f"invalid {kind} marker") from e
+    producer = MARKER_PRODUCER if replay_mode else "bwapi_tournament_match_marker"
     if (not isinstance(obj,dict) or obj.get("schema") != 1 or
-        obj.get("producer") != MARKER_PRODUCER or
+        obj.get("producer") != producer or
         obj.get("event") != kind or obj.get("run_id") != run_id or
-        obj.get("replay_mode") is not True or
+        obj.get("replay_mode") is not replay_mode or
         type(obj.get("frame")) is not int or obj["frame"] < max(1, after)):
         raise ReplayLaunchError(f"unverified {kind} marker")
     return obj
