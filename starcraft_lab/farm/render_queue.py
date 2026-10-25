@@ -45,8 +45,13 @@ def candidates(match_workspace:Path) -> list[dict]:
         if hash_file(replay)!=receipt.get("replay_sha256"):
             raise FarmError(f"{rid}: replay SHA-256 changed")
         probe=json_at(replay.with_name("replay_probe.json"))
-        if probe.get("replay_sha256")!=receipt["replay_sha256"]:
-            raise FarmError(f"{rid}: replay parser hashes disagree")
+        if (probe.get("schema")!=1 or
+            probe.get("producer")!="starcraft-replay-probe/replay-core" or
+            probe.get("engine_type")!="BroodWar" or
+            not isinstance(probe.get("command_warnings"),dict) or
+            probe["command_warnings"].get("clean") is not True or
+            probe.get("replay_sha256")!=receipt["replay_sha256"]):
+            raise FarmError(f"{rid}: no acceptable pinned replay parser evidence")
         mods=runtime["mods"]
         mod=mods[receipt["variant"]]
         mpq=canonical_file(mod["mpq"],"mod package")
