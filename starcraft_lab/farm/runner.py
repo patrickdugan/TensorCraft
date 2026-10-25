@@ -13,7 +13,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from queue import Empty, Queue
 import subprocess
 import sys
 import time
@@ -254,7 +253,8 @@ def prepare(plan_file:Path, runtime_file:Path, dest:Path) -> dict:
     (dest/"bandit_baseline.txt").write_bytes(seed)
     atomic_create(dest/"plan.json",plan)
     atomic_create(dest/"runtime.json",runtime)
-    pairs,_=__import__("starcraft_lab.farm.schema",fromlist=["validate_plan"]).validate_plan(plan)
+    from .schema import validate_plan
+    pairs,_=validate_plan(plan)
     descriptor={
         "schema":1,"status":"prepared_not_executed",
         "pairs":len(pairs),"games":sum(len(p) for p in pairs),
@@ -279,7 +279,6 @@ def execute(workspace:Path, *, allow_native:bool=False) -> dict:
     seed=(work_root/"bandit_baseline.txt").read_bytes()
     if hashlib.sha256(seed).hexdigest()!=plan["source_bandit_sha256"]:
         raise FarmError("frozen bandit hash changed")
-    probe=settings.get("replay_probe_exe")
     if runtime.get("replay_probe_exe") is not None:
         program=canonical_file(runtime["replay_probe_exe"],"replay_probe_exe")
         settings["replay_probe_exe"]=str(program)
@@ -287,9 +286,12 @@ def execute(workspace:Path, *, allow_native:bool=False) -> dict:
         settings["replay_probe_exe"]=None
     from .schema import validate_plan
     pairs,_=validate_plan(plan)
-    q=Queue()
-    for pair in pairs:
-        q.put(pair)
+    # Stable slot assignment makes runs reproducible even when workers finish
+    # at different speeds. Pair arms always execute sequentially on one slot.
+    n=settings["capacity"]["max_parallel"]
+    assignments=[[] for _ in range(n)]
+    for index,pair in enumerate(pairs):
+        assignments[index % n].append(pair)
     lock_paths=[work_root/".farm.lock"] + [Path(s["game_dir"])/".tensorcraft_worker.lock"
                                              for s in settings["slots"][:settings["capacity"]["max_parallel"]]]
     done=[]
@@ -297,21 +299,16 @@ def execute(workspace:Path, *, allow_native:bool=False) -> dict:
         for path in lock_paths:
             _reserved_lock(path)
             stack.callback(path.unlink)
-        def worker(slot):
+        def worker(args):
+            slot,assigned_pairs=args
             records=[]
-            while True:
-                try:
-                    pair=q.get_nowait()
-                except Empty:
-                    break
-                try:
-                    for game in pair:
-                        records.append(_single_game(game,slot,settings,work_root,seed))
-                finally:
-                    q.task_done()
+            for pair in assigned_pairs:
+                for game in pair:
+                    records.append(_single_game(game,slot,settings,work_root,seed))
             return records
-        with ThreadPoolExecutor(max_workers=settings["capacity"]["max_parallel"]) as executor:
-            results=list(executor.map(worker,settings["slots"][:settings["capacity"]["max_parallel"]]))
+        with ThreadPoolExecutor(max_workers=n) as executor:
+            results=list(executor.map(worker,
+                       zip(settings["slots"][:n],assignments)))
         for result in results:
             done.extend(result)
         aggregate={
