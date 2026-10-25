@@ -254,6 +254,25 @@ class VideoSpecTests(unittest.TestCase):
             video._validate_render_script(["launcher","{replay}"])
         with self.assertRaisesRegex(schema.FarmError,"unsupported"):
             video._validate_render_script(["launcher","{bad}"])
+    def test_bad_replay_signature_cannot_be_marked_as_capture(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            game=root/"game";game.mkdir()
+            wine=root/"wine";wine.mkdir()
+            bad=root/"bad.rep";bad.write_bytes(b"not the engine" + bytes(100))
+            mod=root/"patch.mpq";mod.write_bytes(b"mock")
+            spec={
+                "schema":1,"run_id":"invalid",
+                "replay":str(bad),"replay_sha256":schema.hash_file(bad),
+                "mod_mpq":str(mod),"mod_mpq_sha256":schema.hash_file(mod),
+                "game_dir":str(game),"wineprefix":str(wine),
+                "display":":121","capture_limit_seconds":30,
+                "ready_timeout_seconds":10,
+                "replay_launcher":["p","{replay}","{mod_mpq}",
+                                   "{ready_marker}","{done_marker}","{display}"],
+            }
+            with self.assertRaisesRegex(schema.FarmError,"replay envelope"):
+                video.render_spec(spec,root/"out")
     def test_faststart_box_order(self):
         def box(name,data=b"x"*4):
             return (8+len(data)).to_bytes(4,"big")+name+data
