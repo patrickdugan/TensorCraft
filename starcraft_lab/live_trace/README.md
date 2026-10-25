@@ -114,3 +114,15 @@ The provenance binder checks `run_id`, intervention, player ID, replay hash, app
 **Critical:** The existing TensorCraft batch planner labels a desired RNG seed and spawn but has not proved control over them. If observed seeds or starting tiles differ, treat those games as independent randomized observations rather than falsely pairing them on common seed. Pluto's executable identity and MPQ loading still require separate live preflight and speed/cooldown acceptance; an observed map hash cannot attest those binaries.
 
 Record both `main_ai_event_ms` and `logical_fps` when the observer is enabled. Compare with games recorded without the observer; this is a non-interference check, while `main_ai_event_ms` by itself measures the callback duration rather than the whole 64-bit Pluto inference process.
+
+## Firing-opportunity friction diagnostic
+
+An additional observation tracks a Devourer whose air cooldown is zero, which is in an attacking state and has a visible airborne target. For those frames it calculates whether the target is beyond the declared air-weapon range, and reports a **cooldown-ready but target-out-of-range fraction**. It provides a direct hypothesis for why faster movement might help a Muta flock: the Devourer could spend fewer attack-ready frames chasing enemies.
+
+The default nominal range is 192 pixels (6 build tiles) in the public catalog. Replace it with the locally extracted `weapons.dat.max_range` when available:
+
+```powershell
+python -m starcraft_lab.world_model.trace_analysis report --trace C:\BWLab\runs\run.jsonl --strict --devourer-range-px 192 --output C:\BWLab\reports\run.json
+```
+
+The statistic excludes targets outside player visibility and any frame with truncated units. Weapon readiness and proximity still do not establish a guaranteed shot; attack animation, targeting rules, cooldown randomness and projectile travel remain separate variables.
