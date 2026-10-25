@@ -117,3 +117,34 @@ jobs:
       - name: Compile passive trace observer to x86 object (no engine linkage)
         shell: cmd
         run: cl /nologo /EHsc /std:c++14 /W4 /c /I "_bwapi44\bwapi\include" "starcraft_lab\live_trace\TraceTournament.cpp" /Fo:"%TEMP%\TensorCraftTrace.obj"
+
+  farm-synthetic-video:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify FFmpeg and libx264 support
+        run: |
+          ffmpeg -version | head -n 1
+          ffmpeg -encoders | grep libx264
+          ffprobe -version | head -n 1
+      - name: Encode/inspect synthetic 5-second 1080p30 YouTube-style MP4
+        run: |
+          mkdir -p /tmp/tensorcraft-video-test
+          python -m starcraft_lab.farm.smoke_video --output /tmp/tensorcraft-video-test/TEST_PATTERN_NOT_STARCRAFT.mp4
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("/tmp/tensorcraft-video-test")
+          data=json.loads((root/"TEST_PATTERN_NOT_STARCRAFT.receipt.json").read_text())
+          assert data["producer"]=="synthetic_ffmpeg_test_pattern"
+          assert data["youtube_container_and_codec_compatible"]
+          assert not data["actual_starcraft_footage"]
+          assert not data["gameplay_visual_content_verified"]
+          assert data["duration_seconds"]>=4.8
+          print("Synthetic YouTube MP4 encoding contract passed (NOT a StarCraft replay)")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tensorcraft-youtube-codec-SYNTHETIC-TEST-NOT-GAMEPLAY
+          path: /tmp/tensorcraft-video-test/
+          retention-days: 7
