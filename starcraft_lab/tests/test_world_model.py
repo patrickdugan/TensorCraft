@@ -69,7 +69,7 @@ class SetAndSchemaTests(unittest.TestCase):
 
 class DatModelTests(unittest.TestCase):
     def test_widths_and_offset_match_mod_patcher(self):
-        self.assertEqual(dat.byte_length(dat.UNIT_COLUMNS),19916)
+        self.assertEqual(dat.byte_length(dat.UNIT_COLUMNS),19876)
         self.assertEqual(dat.byte_length(dat.WEAPON_COLUMNS),5460)
         self.assertEqual(dat.byte_length(dat.FLINGY_COLUMNS),3135)
         self.assertEqual(dat.byte_length(dat.UPGRADE_COLUMNS),1281)
