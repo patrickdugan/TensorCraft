@@ -81,11 +81,11 @@ class TelemetryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root/'manifest.json').write_text(json.dumps(manifest()))
-            (root/'events.txt').write_text('seq 1\\n{"type":"start","build":"x"}\\n{"type":"end","result":"win"}\\n')
+            (root/'events.txt').write_text('seq 1\n{"type":"start","build":"x"}\n{"type":"end","result":"win"}\n')
             r = telemetry.collect(root/'manifest.json', root/'events.txt', root/'r.json')
             self.assertEqual(len(r['pluto_json_events']), 2)
             self.assertFalse(r['telemetry_errors'])
-            (root/'bad.txt').write_text('{broken\\n')
+            (root/'bad.txt').write_text('{broken\n')
             r2 = telemetry.collect(root/'manifest.json', root/'bad.txt', root/'bad.json')
             self.assertEqual(r2['telemetry_errors'], ['malformed_json_line_1'])
             with self.assertRaises(FileExistsError):
