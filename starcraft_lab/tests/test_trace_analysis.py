@@ -172,6 +172,22 @@ class TraceTests(unittest.TestCase):
             save(events,p)
             with self.assertRaisesRegex(ta.TraceError,"main_ai_event_ms"):
                 ta.read_trace(p)
+    def test_ready_weapon_outside_range_friction_proxy(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/"range.jsonl"
+            events=frames_for(num=180)
+            for i in range(20,41):
+                events[i+1]["units"][0]["air_cooldown"]=0
+            for i in range(130,151):
+                events[i+1]["units"][0]["air_cooldown"]=0
+            save(events,p)
+            report=ta.analyze_file(p,require_complete=True,devourer_range_px=192)
+            self.assertEqual(report["ready_with_visible_target_samples"],42)
+            self.assertEqual(report["ready_with_visible_target_outside_range"],21)
+            self.assertEqual(report["ready_with_visible_target_inside_range"],21)
+            self.assertEqual(report["ready_target_outside_nominal_range_fraction"],0.5)
+            with self.assertRaisesRegex(ta.TraceError,"invalid Devourer attack range"):
+                ta.analyze_file(p,devourer_range_px=-1)
     def test_incomplete_unit_set_marks_calibration_ineligible(self):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"r.jsonl"
