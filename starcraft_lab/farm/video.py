@@ -79,6 +79,9 @@ def render_spec(spec:dict, out_dir:Path)->dict:
         raise FarmError("replay or mod MPQ changed after recording")
     if replay.stat().st_size < 30:
         raise FarmError("replay too small")
+    from .runner import _replay_envelope
+    if not _replay_envelope(replay):
+        raise FarmError("input is not a bounded Brood War replay envelope")
     launcher=spec.get("replay_launcher")
     _validate_render_script(launcher)
     display=spec.get("display")
