@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "run_id": "trial001-control",
+  "replay": "/private/BWLab/exp/jobs/trial001-control/trial001-control.rep",
+  "replay_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "mod_mpq": "/private/BWLab/mods/control.mpq",
+  "mod_mpq_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "display": ":121",
+  "game_dir": "/private/BWLab/render-workers/video01/StarCraft",
+  "wineprefix": "/private/BWLab/render-workers/video01/wineprefix",
+  "capture_limit_seconds": 1800,
+  "ready_timeout_seconds": 120,
+  "replay_launcher": [
+    "/private/BWLab/bin/replay_gui_wrapper",
+    "--replay",
+    "{replay}",
+    "--mod",
+    "{mod_mpq}",
+    "--ready",
+    "{ready_marker}",
+    "--done",
+    "{done_marker}",
+    "--display",
+    "{display}",
+    "--game-dir",
+    "{game_dir}"
+  ]
+}
