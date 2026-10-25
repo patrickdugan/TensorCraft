@@ -15,7 +15,7 @@ REQUIRED = (
     "schema", "run_id", "pair_id", "variant", "engine", "agent",
     "agent_model", "agent_binary_sha256", "engine_sha256", "map_sha256",
     "mod_sha256", "opponent", "player_race", "opponent_race", "spawn",
-    "seed", "bandit_initial_sha256", "result", "result_evidence",
+    "seed", "bandit_initial_sha256", "result", "result_evidence", "result_evidence_sha256",
 )
 
 
@@ -52,14 +52,30 @@ def validate(m: dict) -> None:
         raise ValueError("scored results require explicit evidence")
     if m["result"] in ("crash", "unknown") and m["result_evidence"] in ("replay", "tournament"):
         raise ValueError("crash/unknown must not be recorded as verified scored results")
+    evidence_hash = m["result_evidence_sha256"]
+    if m["result_evidence"] in ("replay", "tournament"):
+        if not isinstance(evidence_hash, str) or not HEX.fullmatch(evidence_hash):
+            raise ValueError("a replay/tournament result requires result_evidence_sha256")
+    elif evidence_hash is not None:
+        raise ValueError("only replay/tournament results may declare a result_evidence_sha256")
 
 
-def collect(manifest_file: Path, pluto_log: Path | None, dest: Path) -> dict:
+def collect(manifest_file: Path, pluto_log: Path | None, dest: Path, evidence_file: Path | None = None) -> dict:
     m = json.loads(manifest_file.read_text(encoding="utf-8"))
     validate(m)
     events = []
     errors = []
     raw_sha = None
+    evidence_verified = False
+    if m["result_evidence"] in ("replay", "tournament"):
+        if evidence_file is None:
+            errors.append("result_evidence_file_missing")
+        elif sha(evidence_file.read_bytes()) != m["result_evidence_sha256"]:
+            errors.append("result_evidence_sha256_mismatch")
+        else:
+            evidence_verified = True
+    elif evidence_file is not None:
+        raise ValueError("evidence file supplied for an outcome without replay/tournament evidence")
     if pluto_log is not None:
         raw = pluto_log.read_bytes()
         raw_sha = sha(raw)
@@ -78,7 +94,8 @@ def collect(manifest_file: Path, pluto_log: Path | None, dest: Path) -> dict:
     elif m["agent"] == "pluto":
         errors.append("pluto_log_not_provided")
     record = {"schema": 1, "manifest": m, "pluto_log_sha256": raw_sha,
-              "pluto_json_events": events, "telemetry_errors": errors}
+              "pluto_json_events": events, "telemetry_errors": errors,
+              "result_evidence_verified": evidence_verified}
     if dest.exists():
         raise FileExistsError(f"refusing to overwrite {dest}")
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -90,7 +107,8 @@ def collect(manifest_file: Path, pluto_log: Path | None, dest: Path) -> dict:
 
 def verified(r: dict) -> bool:
     m = r["manifest"]
-    return (not r["telemetry_errors"] and m["result"] in ("win", "loss", "draw")
+    return (not r["telemetry_errors"] and r.get("result_evidence_verified") is True
+            and m["result"] in ("win", "loss", "draw")
             and m["result_evidence"] in ("replay", "tournament"))
 
 
@@ -137,6 +155,8 @@ def analyze(directory: Path) -> dict:
         a, b = left["manifest"], right["manifest"]
         if any(a[k] != b[k] for k in common):
             mismatched.append({"pair_id": pair_id, "reason": "different_conditions"})
+        elif a["mod_sha256"] == b["mod_sha256"]:
+            mismatched.append({"pair_id": pair_id, "reason": "same_mod_hash"})
         elif not (verified(left) and verified(right)):
             mismatched.append({"pair_id": pair_id, "reason": "unverified_outcome"})
         else:
@@ -152,11 +172,12 @@ def main(argv: list[str] | None = None) -> int:
     record = subs.add_parser("record")
     record.add_argument("--manifest", type=Path, required=True)
     record.add_argument("--pluto-log", type=Path)
+    record.add_argument("--result-evidence-file", type=Path)
     record.add_argument("--output", type=Path, required=True)
     summary = subs.add_parser("analyze")
     summary.add_argument("--records", type=Path, required=True)
     args = ap.parse_args(argv)
-    outcome = (collect(args.manifest, args.pluto_log, args.output) if args.command == "record"
+    outcome = (collect(args.manifest, args.pluto_log, args.output, args.result_evidence_file) if args.command == "record"
                else analyze(args.records))
     print(json.dumps(outcome, indent=2, sort_keys=True))
     return 0
