@@ -16,7 +16,7 @@ BWAPI 4.4.0 has a separate TournamentModule and `newTournamentAI()` interface. I
 
 ## Build locally with x86 MSVC
 
-Use the **same** tagged BWAPI 4.4.0 headers and static BWAPILIB build as Pluto's native game integration. Check the actual release artifacts and local library paths before building. The tool deliberately fails its CMake configure step on non-Windows or non-x86 environments.
+Use the **same** tagged BWAPI 4.4.0 headers and static BWAPILIB build as Pluto's native game integration. Check the actual release artifacts and local library paths before building. The tool deliberately fails its CMake configure step on non-Windows or non-x86 environments. The code now also exports newAIModule as a passive no-op AI for watching real replay files with BWAPI auto-menu and native JSON start/end markers; in normal Pluto matches, use the original ai=pluto.dll and the same DLL only in the tournament field.
 
 Run from a Visual Studio developer PowerShell or cmd with Win32 build tools:
 
@@ -25,7 +25,7 @@ cmake -S starcraft_lab/live_trace -B C:\BWLab\build\trace -G "Visual Studio 17 2
 cmake --build C:\BWLab\build\trace --config Release
 ```
 
-The CMake paths above are **examples**. Resolve the actual built `BWAPILIB.lib` or the compiler's corresponding output from the pinned local checkout. Verify the produced `TensorCraftTrace.dll` is an x86 DLL, and include its SHA-256 in the match receipt. A successful compile is one gate; it does not establish game compatibility or acceptable performance overhead.
+Build BWAPILIB using the exact BWAPI v4.4.0 tag, with the generated svnrev.h from the project's versioned git history (see the passing Windows CI workflow). Ensure the observer uses the same /MD dynamic C runtime as BWAPILIB and targets Win32/x86. The CMake paths above are **examples**. Resolve the actual built `BWAPILIB.lib` or the compiler's corresponding output from the pinned local checkout. Verify the produced `TensorCraftTrace.dll` is an x86 DLL, and include its SHA-256 in the match receipt. A successful compile is one gate; it does not establish game compatibility or acceptable performance overhead.
 
 ## Enable on a disposable private installation
 
