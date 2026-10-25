@@ -122,6 +122,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install FFmpeg (CI asset-free codec proof)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Verify FFmpeg and libx264 support
         run: |
           ffmpeg -version | head -n 1
