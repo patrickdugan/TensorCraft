@@ -130,6 +130,17 @@ class TelemetryTests(unittest.TestCase):
                 (root/f'{name}.json').write_text(json.dumps(r))
             summary=telemetry.analyze(root)
             self.assertEqual(summary['excluded_pairs'][0]['reason'],'same_mod_hash')
+    def test_mismatched_agent_player_identity_excludes_pair(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name, var, player_id in (('r1', 'control', 0), ('r2', 'devourer_speed_550', 1)):
+                m = manifest(run_id=name, variant=var, agent_player_id=player_id,
+                             mod_sha256=('d'*64 if var=='control' else 'f'*64))
+                r = {'schema': 1, 'manifest': m, 'telemetry_errors': [],
+                     'evidence_hash_matches': True}
+                (root/f'{name}.json').write_text(json.dumps(r))
+            self.assertEqual(telemetry.analyze(root)['excluded_pairs'][0]['reason'],
+                             'different_conditions')
     def test_duplicate_run_id_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
