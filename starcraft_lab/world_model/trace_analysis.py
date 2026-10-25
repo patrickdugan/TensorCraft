@@ -173,7 +173,10 @@ def _quantile(values, q):
     return s[a] * (1 - (pos - a)) + s[min(a + 1, len(s)-1)] * (pos - a)
 
 
-def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
+def analyze_trace(trace: dict, *, require_complete: bool = False,
+                  devourer_range_px: float = 192) -> dict:
+    if type(devourer_range_px) not in (int,float) or not math.isfinite(devourer_range_px) or not 1 <= devourer_range_px <= 4000:
+        raise TraceError("invalid Devourer attack range")
     header, frames = trace["header"], trace["frames"]
     # In strict calibration mode any missing frame/overflow/global-view access
     # blocks calibrated outputs. Exploratory summaries still report their gaps.
@@ -193,6 +196,9 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
     devourer_to_muta = []
     attack_ready_moving = 0
     attack_ready = 0
+    target_range_readiness = Counter()
+    target_range_visible_samples = 0
+    target_distances_ready = []
     ai_times = []
     game_fps = []
     for fr in frames:
@@ -205,6 +211,7 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
         ai_times.append(fr["main_ai_event_ms"])
         game_fps.append(fr["logical_fps"])
         by_player = defaultdict(lambda: {"devourers": [], "mutas": []})
+        frame_by_unit_id = {u["id"]:u for u in fr["units"]}
         for u in fr["units"]:
             typ = u["type"]
             uid = u["id"]
@@ -215,6 +222,16 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
                     attack_ready += 1
                     if math.hypot(u["vx"], u["vy"]) > 0.5:
                         attack_ready_moving += 1
+                    enemy = frame_by_unit_id.get(u["target_id"])
+                    if (enemy is not None and enemy["player"] != player
+                            and enemy["player"] >= 0 and enemy["type"] != typ):
+                        dist = math.hypot(u["x"]-enemy["x"],u["y"]-enemy["y"])
+                        target_range_visible_samples += 1
+                        target_distances_ready.append(dist)
+                        if dist > devourer_range_px + 2:
+                            target_range_readiness["outside"] += 1
+                        else:
+                            target_range_readiness["inside"] += 1
             elif typ == MUTA:
                 by_player[player]["mutas"].append(u)
             prior = unit_previous.get(uid)
@@ -296,6 +313,15 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
         "devourer_cooldown_ready_while_attacking_samples": attack_ready,
         "devourer_cooldown_ready_and_moving_fraction":
             (attack_ready_moving/attack_ready if attack_ready else None),
+        "assumed_devourer_attack_range_px":devourer_range_px,
+        "ready_with_visible_target_samples":target_range_visible_samples,
+        "ready_with_visible_target_outside_range":target_range_readiness["outside"],
+        "ready_with_visible_target_inside_range":target_range_readiness["inside"],
+        "ready_target_outside_nominal_range_fraction":
+            (target_range_readiness["outside"]/target_range_visible_samples
+             if target_range_visible_samples else None),
+        "median_target_distance_when_ready_px":
+            median(target_distances_ready) if target_distances_ready else None,
         "interpretation": {
             "main_ai_callback_ms": "BWAPI last AI callback duration, not necessarily full Pluto inference wall time",
             "observed_rng_seed": "initial game RNG seed, recorded by BWAPI; planned seed labels alone do not enforce this value",
@@ -305,6 +331,7 @@ def analyze_trace(trace: dict, *, require_complete: bool = False) -> dict:
             "cooldown_reset": "post-attack cooldown counter, sometimes changed by status and jitter",
             "spores": "net increases on continuously visible unit IDs, with hidden-unit events excluded",
             "ready_moving": "diagnostic for unavailable firing opportunities, NOT confirmed missed attacks",
+            "ready_target_outside_nominal_range": "visible target-distance proxy using assumed attack range; incomplete hidden targets and animation can confound it",
             "formation": "Devourer distance from visible friendly Muta centroid, not true control-group membership",
         }
     }
