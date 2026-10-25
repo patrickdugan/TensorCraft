@@ -154,7 +154,7 @@ jobs:
       - name: Install FFmpeg (CI asset-free codec proof)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth x11-utils
       - name: Verify FFmpeg and libx264 support
         run: |
           ffmpeg -version | head -n 1
@@ -176,8 +176,24 @@ jobs:
           assert data["duration_seconds"]>=4.8
           print("Synthetic YouTube MP4 encoding contract passed (NOT a StarCraft replay)")
           PY
+      - name: Verify real private Xvfb to x11grab moving test-window capture
+        run: |
+          mkdir -p /tmp/tensorcraft-xvfb-parent
+          python -m starcraft_lab.farm.smoke_xvfb --output-dir /tmp/tensorcraft-xvfb-parent/capture --display :173
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("/tmp/tensorcraft-xvfb-parent/capture/receipt.json")
+          d=json.loads(p.read_text())
+          assert d["x11_capture_path_verified"]
+          assert d["youtube_container_and_codec_compatible"]
+          assert not d["actual_starcraft_gameplay"]
+          print("Real Xvfb+FFmpeg x11grab verified on synthetic moving image")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: tensorcraft-youtube-codec-SYNTHETIC-TEST-NOT-GAMEPLAY
-          path: /tmp/tensorcraft-video-test/
+          path: |
+            /tmp/tensorcraft-video-test/
+            /tmp/tensorcraft-xvfb-parent/capture/
           retention-days: 7
