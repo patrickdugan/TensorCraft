@@ -73,6 +73,24 @@ python -m starcraft_lab.telemetry analyze --records /private-exp/records
 
 Set agent_player_id in the manifest to the appropriate replay-header ID. The collector rejects mismatched replay hashes, inconsistent first-leaver outcomes, incorrect race attribution and incomplete command decoding; it aggregates unit **order** incidence and timing by variant. These are observations of commands and model-estimated production, not combat snapshots. For full details consult the smoke protocol.
 
+## Stage 2: balanced Pluto A/B batch planner
+
+The [batch experiment guide](BATCH.md) provides the exact host workflow and a [Windows example specification](batch.example.json). Generate 30 paired trials (60 game manifests) with one command:
+
+~~~bash
+python -m starcraft_lab.batch plan --spec /private-exp/experiment.json --output /private-exp/runs/devourer_v1
+~~~
+
+The planner freezes initial Pluto per-opponent bandit bytes, hashes two isolated game installations and all inference/model binaries, and balances control/treatment order and requested A/B spawn positions. It never launches or changes the game installation. A run's requested map RNG seed and spawn are labels pending a live launcher verification.
+
+For evidence-backed records, summarize paired reported wins and Devourer order adoption:
+
+~~~bash
+python -m starcraft_lab.batch analyze --plan /private-exp/runs/devourer_v1/plan.json --records /private-exp/runs/devourer_v1/records
+~~~
+
+The paired exact sign test and seeded exploratory bootstrap interval are descriptive until the native MPQDraft/BWAPI+Pluto pathway and real game conditions are independently verified. BWAPI's own MPQDraft launcher supports selecting the archive and BWAPI injector plugin together; see [STAGE1_SMOKE.md](STAGE1_SMOKE.md). Pluto's native 1.16.1 dependency remains the reason experiments currently use the original executable.
+
 ## First experiment protocol and acceptance gates
 
 - **Stage 0:** source inspection, data mapping, input hash guard, byte-level patch proof, synthetic fixture tests. This repository implements that stage.
