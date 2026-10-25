@@ -89,9 +89,13 @@ def render_spec(spec:dict, out_dir:Path)->dict:
         if type(v) is not int or v<3 or v>7200:
             raise FarmError(f"{key} must be integer 3..7200")
     game_dir=spec.get("game_dir")
+    wineprefix=spec.get("wineprefix")
     if not isinstance(game_dir,str) or not Path(game_dir).is_dir():
         raise FarmError("render game_dir missing")
     game_dir=str(Path(game_dir).resolve())
+    if not isinstance(wineprefix,str) or not Path(wineprefix).is_absolute() or not Path(wineprefix).is_dir():
+        raise FarmError("render requires a private existing WINEPREFIX directory")
+    wineprefix=str(Path(wineprefix).resolve())
     if out_dir.resolve()==Path(game_dir) or Path(game_dir) in out_dir.resolve().parents:
         raise FarmError("render output inside game installation")
     if out_dir.exists():
@@ -111,7 +115,8 @@ def render_spec(spec:dict, out_dir:Path)->dict:
         "run_id":run_id,"replay":str(replay),"mod_mpq":str(mod),
         "replay_sha256":expected_replay,"mod_mpq_sha256":expected_mod,
         "display":display,"launcher":launcher,
-        "game_dir":game_dir,"capture_limit_seconds":spec["capture_limit_seconds"],
+        "game_dir":game_dir,"wineprefix":wineprefix,
+        "capture_limit_seconds":spec["capture_limit_seconds"],
         "ready_timeout_seconds":spec["ready_timeout_seconds"],
         "binary":binary,
     }
@@ -246,6 +251,7 @@ def capture(spec:dict, out_dir:Path, *, execute:bool=False)->dict:
     auth=root/".Xauthority"
     env=os.environ.copy()
     env["DISPLAY"]=verified["display"]
+    env["WINEPREFIX"]=verified["wineprefix"]
     env["XAUTHORITY"]=str(auth)
     xcookie=secrets.token_hex(16)
     # Do not use -ac. Restrict the X server to localhost UNIX sockets and a
