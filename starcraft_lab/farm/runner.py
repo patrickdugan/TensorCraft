@@ -258,6 +258,8 @@ def _single_game(game:dict, slot:dict, settings:dict,
         source_root=str(Path(__file__).resolve().parents[2])
         env["PYTHONPATH"]=source_root+(
             os.pathsep+env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+        if slot.get("xauthority"):
+            env["XAUTHORITY"]=slot["xauthority"]
         env.update({
             "WINEPREFIX":slot["wineprefix"],
             "DISPLAY":slot["display"],
@@ -351,6 +353,7 @@ def prepare(plan_file:Path, runtime_file:Path, dest:Path) -> dict:
         "pairs":len(pairs),"games":sum(len(p) for p in pairs),
         "slots":len(spec["slots"]),
         "max_parallel":spec["capacity"]["max_parallel"],
+        "display_backend":spec["display_backend"],
         "runtime_sha256":hash_file(runtime_file),
         "plan_sha256":hash_file(plan_file),
         "game_result_verification":False,
@@ -390,6 +393,14 @@ def execute(workspace:Path, *, allow_native:bool=False) -> dict:
         for path in lock_paths:
             _reserved_lock(path)
             stack.callback(path.unlink)
+        live_slots=[dict(s) for s in settings["slots"][:n]]
+        if settings["display_backend"]=="managed_xvfb":
+            from .xdisplay import leased_xvfb
+            (work_root/"displays").mkdir(parents=True,exist_ok=True)
+            for slot in live_slots:
+                lease=stack.enter_context(leased_xvfb(
+                    slot["display"],work_root/"displays"/slot["id"]))
+                slot["xauthority"]=lease["xauthority"]
         def worker(args):
             slot,assigned_pairs=args
             records=[]
@@ -399,13 +410,14 @@ def execute(workspace:Path, *, allow_native:bool=False) -> dict:
             return records
         with ThreadPoolExecutor(max_workers=n) as executor:
             results=list(executor.map(worker,
-                       zip(settings["slots"][:n],assignments)))
+                       zip(live_slots,assignments)))
         for result in results:
             done.extend(result)
         aggregate={
             "schema":1,"status":"execution_attempted",
             "jobs":len(done),"counts":dict(__import__("collections").Counter(x["status"] for x in done)),
             "max_parallel_configured":settings["capacity"]["max_parallel"],
+            "display_backend":settings["display_backend"],
             "native_headless_backend_verified":False,
             "games_with_parser_clean_replays":sum(x["status"]=="parsed_replay" for x in done),
             "video_jobs_emitted":0,
