@@ -60,7 +60,7 @@ The encounter outcome is compared using remaining weighted army value, with gas 
 ## First guestimated matchup matrix
 
 ```bash
-python -m starcraft_lab.world_model.experiments --trials 40 --sensitivity-trials 8 --seed 20261025 --output /private/sc_model_priors.json
+python -m starcraft_lab.world_model.experiments --trials 256 --sensitivity-trials 24 --seed 20261025 --output /private/sc_model_priors.json
 ```
 
 For a private owned-data overlay, add `--catalog /private/local_model_catalog.json`. The eight scenarios in `scenarios.json` include clustered versus dispersed ZvZ, small Devourer groups, Wraiths, Corsairs, Valkyries, and seven Scouts against Tank/Goliath cover. Every generated numeric field is marked as surrogate output.
